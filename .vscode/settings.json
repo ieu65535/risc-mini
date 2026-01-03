@@ -1,0 +1,7 @@
+{
+    "verilog.linting.linter": "iverilog",
+    "verilog.linting.iverilog.includePath": [
+        "rtl/core"
+    ],
+    "verilog.linting.iverilog.arguments": "-y rtl/core"
+}
