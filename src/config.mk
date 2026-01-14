@@ -6,8 +6,8 @@ endif
 ARCH = rv32i_zicsr
 ABI = ilp32
 CMODEL = medlow
-LIBC =
-INCLUDE_DIRS += -I$(LIBC)/include -I../$(LIBC)/include
+LIBC = mini_libc
+INCLUDE_DIRS += -I../$(LIBC)/include
 INCLUDE_DIRS += -I/usr/lib/picolibc/riscv64-unknown-elf/include
 
 CC   = $(CCPATH)/$(CROSS)-gcc
@@ -24,13 +24,14 @@ CFLAGS  = -Wall -Os -ffunction-sections -fdata-sections
 CFLAGS += -march=$(ARCH) -mabi=$(ABI) -mcmodel=$(CMODEL)
 ASFLAGS = -march=$(ARCH) -mabi=$(ABI)
 
-LDFLAGS += --specs=picolibc.specs --oslib=semihost --crt0=minimal -DPICOLIBC_INTEGER_PRINTF_SCANF
-LDFLAGS += -nostartfiles -Xlinker --gc-sections -Wl,-Map,$(OUTPUT_DIR)/RTOSDemo.map \
-           -T../link.ld -march=$(ARCH) -mabi=$(ABI) -mcmodel=$(CMODEL) -Xlinker \
-           --defsym=__stack_size=352 -Wl,--start-group -Wl,--end-group
+LDFLAGS += --specs=picolibc.specs -T../sample.ld --printf=i
+LDFLAGS += -march=$(ARCH) -mabi=$(ABI) -mcmodel=$(CMODEL)
 
 LDLIBS  = $(LIBS)
 CPFLAGS = -P 
-OCFLAGS = -O binary
+OCFLAGS = -j .rodata -j .init -j .text -j .data -O binary
 ODFLAGS = -D
 ARFLAGS = -rcs
+
+VPATH += ../$(LIBC)
+SOURCE_FILES += ../$(LIBC)/uart.c

@@ -24,7 +24,7 @@
  *
  */
 
-#include "riscv-virt.h"
+#include "riscv-reg.h"
 
 	.extern main
 	.section .init
@@ -37,11 +37,6 @@ _start:
 .option norelax
 	la  gp, __global_pointer$
 .option pop
-
-	// Continue primary hart
-	csrr a0, mhartid
-	li   a1, PRIM_HART
-	bne  a0, a1, secondary
 
 	// Primary hart
 	la sp, _stack_top
@@ -68,17 +63,6 @@ _start:
 	addi a0, a0, REGSIZE
 	bltu a0, a1, 1b
 2:
-#ifdef __riscv_fdiv
-	// Enable FPU
-	li          t0, (1 << 13)
-	csrs        mstatus, t0
-	fscsr       x0
-#endif
-#ifdef __riscv_vector
-	// Enable VPU
-	li          t0, (1 << 9)
-	csrs        mstatus, t0
-#endif
 
 	// argc, argv, envp is 0
 	li  a0, 0
@@ -89,8 +73,5 @@ _start:
 	wfi
 	j 1b
 
-secondary:
-	// TODO: Multicore is not supported
-	wfi
-	j secondary
 	.cfi_endproc
+	

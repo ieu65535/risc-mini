@@ -2,6 +2,7 @@ include config.mk
 
 # Add your application here:
 APPLICATION = FreeRTOS
+# APPLICATION = hello
 
 PROJ = risc-mini
 
@@ -15,7 +16,7 @@ $(DEPS):
 	make -C $(APPLICATION) all
 
 $(PROJ).bin: $(DEPS)
-	$(OC) -j .rodata -j .init -j .text -j .data -O binary $< $@
+	$(OC) $(OCFLAGS) $< $@
 
 $(PROJ).mem: $(PROJ).bin
 	hexdump -ve '/4 "%.8x\n"' $< > $@

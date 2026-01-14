@@ -5,6 +5,9 @@ PROJ = FreeRTOS
 
 TARGETS = $(PROJ).elf
 
+LDFLAGS += -Xlinker --gc-sections -Wl,-Map,$(OUTPUT_DIR)/RTOSDemo.map \
+           -Wl,--start-group -Wl,--end-group
+
 KERNEL_DIR = ./Source
 KERNEL_PORT_DIR += $(KERNEL_DIR)/portable/RISC-V
 INCLUDE_DIRS += -I$(KERNEL_DIR)/include \
@@ -59,7 +62,7 @@ SOURCE_FILES += $(DEMO_PROJECT)/main_full.c
 SOURCE_FILES += $(DEMO_PROJECT)/ns16550.c
 SOURCE_FILES += $(DEMO_PROJECT)/riscv-virt.c
 
-ASM_SOURCE_FILES += ./start.S
+# ASM_SOURCE_FILES += ./start.S
 ASM_SOURCE_FILES += ./RegTest.S
 ASM_SOURCE_FILES += ./vector.S
 

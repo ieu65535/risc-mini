@@ -293,30 +293,7 @@ void vApplicationGetTimerTaskMemory( StaticTask_t ** ppxTimerTaskTCBBuffer,
      * configMINIMAL_STACK_SIZE is specified in words, not bytes. */
     *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
-/*-----------------------------------------------------------*/
 
-int __write( int iFile,
-             char * pcString,
-             int iStringLength )
-{
-    int iNextChar;
-
-    /* Avoid compiler warnings about unused parameters. */
-    ( void ) iFile;
-
-    /* Output the formatted string to the UART. */
-    for( iNextChar = 0; iNextChar < iStringLength; iNextChar++ )
-    {
-        while( ( UART0_STATE & TX_BUFFER_MASK ) != 0 )
-        {
-        }
-
-        UART0_DATA = *pcString;
-        pcString++;
-    }
-
-    return iStringLength;
-}
 /*-----------------------------------------------------------*/
 
 void * malloc( size_t size )
