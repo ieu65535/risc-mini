@@ -1,0 +1,15 @@
+{
+    "configurations": [
+        {
+            "name": "RISC-V",
+            "includePath": [
+                "/usr/lib/picolibc/riscv64-unknown-elf/include/",
+                "src/FreeRTOS/Source/portable/RISC-V",
+                "${workspaceFolder}/**"
+            ],
+            "compilerPath": "/usr/bin/riscv64-unknown-elf-gcc",
+            "cStandard": "c17"
+        }
+    ],
+    "version": 4
+}

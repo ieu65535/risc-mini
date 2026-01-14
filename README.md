@@ -16,6 +16,7 @@
 - iverilog：轻量仿真工具，包含iverilog，vvp
 - vscode：代码编辑器
 - ctags：代码索引工具，用于代码跳转
+- riscv-none-gcc：risc-v编译器，用于编译生成可执行文件[github release](https://github.com/ilg-archived/riscv-none-gcc/releases/) 或者使用apt中的 gcc-riscv64-unknown-elf 作为代替
 
 注意，windows下iverilog自带gtkwave波形显示工具，不需要额外安装。ctags需要universal-ctags而不是老版本的。
 
@@ -38,18 +39,22 @@
 }
 ```
 
-这里，通过-y参数指定模块源代码iverilog可以实现多文件的语法检查。不过限制在于，模块名字必须和文件名一样，否则会找不到模块。这也意味着，一个文件中只能有一个模块和文件同名的模块。
+这里，通过-y参数指定模块源代码iverilog可以实现多文件的语法检查。不过限制在于，模块名字必须和文件名一样，否则会找不到模块。这并不意味着一个文件只能有一个模块，更准确的理解方式是，默认“导出”和文件同名的模块，其他模块不导出。
 
 ## 项目结构
 
 ```
 risc-mini/
 ├── rtl/
-│   └── core/
+│   ├── core/
+│   └── peripherals/
 ├── sim/
+├── src/
 ├── LICENSE
+├── Makefile
 └── README.md
 ```
 
 - rtl：存放verilog代码
 - sim：存放testbench仿真文件
+- src：存放C语言代码，用于生成可执行文件
