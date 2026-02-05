@@ -2,13 +2,13 @@
 
 void uart_init(int baudrate)
 {
-    // Set baud rate
+    UBRR = (F_CPU / baudrate) - 1;
 }
 
 int uart_putc(char c, struct __file *stream)
 {
-    // while (!(UCSRA0 & (1<<UDRE)));
-    // UDR0 = c;
+    while (!(USR & (1 << USR_TC)));
+    UDR = c;
     return 0;
 }
 

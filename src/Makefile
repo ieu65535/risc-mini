@@ -1,8 +1,8 @@
 include config.mk
 
 # Add your application here:
-APPLICATION = FreeRTOS
-# APPLICATION = hello
+# APPLICATION = FreeRTOS
+APPLICATION = hello
 
 PROJ = risc-mini
 
@@ -15,13 +15,13 @@ all: $(TARGETS) $(DEPS)
 $(DEPS):
 	make -C $(APPLICATION) all
 
-$(PROJ).bin: $(DEPS)
+$(PROJ).bin: $(DEPS) Makefile
 	$(OC) $(OCFLAGS) $< $@
 
 $(PROJ).mem: $(PROJ).bin
 	hexdump -ve '/4 "%.8x\n"' $< > $@
 
-$(PROJ).disasm: $(DEPS)
+$(PROJ).disasm: $(DEPS) Makefile
 	$(OD) -s -d $< > $@
 
 clean:

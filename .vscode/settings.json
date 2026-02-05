@@ -1,7 +1,8 @@
 {
     "verilog.linting.linter": "iverilog",
     "verilog.linting.iverilog.includePath": [
-        "rtl/core"
+        "rtl/core",
+        "rtl"
     ],
-    "verilog.linting.iverilog.arguments": "-y rtl/core -y rtl/peripherals"
+    "verilog.linting.iverilog.arguments": "-y rtl/core -y rtl/peripherals -y rtl"
 }
