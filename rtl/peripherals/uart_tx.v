@@ -5,6 +5,7 @@ module uart_tx (
     input rst,
     input en,
     input [15:0] prescale,
+    //clk frequency / baud rate - 1 = prescale
     input [7:0] din,
     output reg txd,
     output busy

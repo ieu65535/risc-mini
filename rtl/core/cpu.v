@@ -53,7 +53,7 @@ always @(*) begin
     next_state = NORMAL;
     case (state)
         NORMAL: begin
-            case (opcode)
+            case (opcode)//analysis
                 `TYPE_R: begin
                     rd_addr = inst[11:7];
                     case (funct3)
@@ -216,6 +216,7 @@ always @(*) begin
     endcase
 end
 
+//load the updated data(装载更新)
 always @(posedge clk) begin
     if (rst) begin
         state <= NORMAL;

@@ -1,44 +1,47 @@
 module io (
     input clk,
     input rst,
-    input [31:0] addr,
+    input [31:0] addr,  //地址总线
     input [31:0] din,
-    input wr,
+    input wr,           //写使能
     output reg [31:0] dout
 );
 
 // uart registers
-reg [31:0] USR;
-reg [31:0] UDR;
-reg [31:0] UBRR;
-reg [31:0] UCR1;
+reg [31:0] USR;   // 状态寄存器
+reg [31:0] UDR;   // 数据寄存器
+reg [31:0] UBRR;  // 波特率寄存器
+reg [31:0] UCR1;  // 控制寄存器
+//对应地址
+//0x00:状态寄存器 0x04:数据寄存器 0x08:波特率寄存器 0x0C:控制寄存器
 
-localparam RXNE = 5;
-localparam TC   = 6;
+localparam RXNE = 5;  // 接收非空标志位
+localparam TC   = 6;  // 发送完成标志位
 
 // gpio registers
 reg [31:0] PORTA;
 
 // uart
-wire [7:0] RDR;
-wire valid;
-wire busy;
-reg  en;
+wire [7:0] RDR; // 串口接收数据
+wire valid;     // 接收有效标志位
+wire busy;      // 串口忙标志位
+reg  en;        // 串口发送使能
 
 always @ (posedge clk) begin
     if (rst) begin
         en <= 0;
     end
     else en <= (wr && addr[7:0] == 8'h04)? 1 : 0;
+    //同时判断是否有写使能和地址是否为数据寄存器地址
 end
 
 always @ (posedge clk) begin
     if (valid)
-        USR[RXNE] <= 1;
+        USR[RXNE] <= 1;//有效信息，非空标志位置1
 end
 
 always @ (posedge clk) begin
-    USR[TC] <= !busy;
+    USR[TC] <= !busy;//不忙，发送完成标志位置1
 end
 
 always @ (posedge clk) begin
@@ -62,7 +65,7 @@ always @ (posedge clk) begin
     case (addr[7:0])
         8'h00: dout <= USR;
         8'h04: begin
-            dout <= {24'h0, RDR};
+            dout <= {24'h0, RDR};//八位补24个0
             USR[RXNE] <= 0;
         end
         

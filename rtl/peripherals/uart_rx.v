@@ -3,6 +3,7 @@ module uart_rx (
     input rst,
     input rxd,
     input [15:0] prescale,
+    //clk frequency / baud rate - 1 = prescale
     output reg [7:0] dout,
     output reg valid
 );
