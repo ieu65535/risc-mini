@@ -4,7 +4,7 @@
 module cpu(
     input clk,
     input rst,
-    input [31:0] inst,
+    input [31:0] inst,// 指令输入
     output reg [31:0] next_pc,
 
     // memory bus interface
@@ -34,8 +34,9 @@ wire jump = (opcode == `TYPE_B) || (opcode == `JAL);
 reg [1:0] state, next_state;
 localparam [1:0]
     NORMAL = 2'b00,
-    LOAD   = 2'b01,
+    LOAD   = 2'b01,//需要多周期
     EXCEPT = 2'b10;
+//状态机，正常执行，加载数据，异常
 
 reg [31:0] regs [0:31];
 reg [31:0] rd, pc;

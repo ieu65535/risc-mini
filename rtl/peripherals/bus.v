@@ -14,7 +14,8 @@ localparam WIDTH = 12;//地址索引位数
 // flash
 reg [31:0] flash [0:(1<<WIDTH)-1];
 reg [31:0] flash_dout;
-
+//大小是32*2^12=4bytes*4096=16KB
+//这里的flash起ROM的作用
 always @(posedge clk) begin
     inst <= flash[inst_addr[WIDTH+1:2]];
 end
@@ -85,7 +86,7 @@ end
 
 initial begin
 	`ifdef XILINX_SIMULATOR
-        $readmemh("risc-mini.mem", flash);
+        $readmemh("risc-mini.mem", flash);//在这里加载指令
     `else
         $readmemh("../src/risc-mini.mem", flash);
     `endif
