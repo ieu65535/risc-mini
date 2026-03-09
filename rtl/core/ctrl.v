@@ -1,0 +1,4 @@
+module ctrl (
+);
+
+endmodule
