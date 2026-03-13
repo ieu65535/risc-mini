@@ -1,6 +1,9 @@
 module soc(
     input clk,
-    input rst_n
+    input rst_n,
+
+    input rxd,
+    output txd
 );
 
 wire rst;
@@ -17,11 +20,13 @@ bus u_bus(
     .clk       (clk       ),
     .rst       (rst       ),
     .inst_addr (inst_addr ),
-    .inst      (inst      ),
+    .inst_dout (inst      ),
     .mem_addr  (mem_addr  ),
     .mem_din   (mem_din   ),
     .mem_we    (mem_we    ),
-    .mem_dout  (mem_dout  )
+    .mem_dout  (mem_dout  ),
+    .txd       (txd       ),
+    .rxd       (rxd       )
 );
 
 cpu u_cpu(

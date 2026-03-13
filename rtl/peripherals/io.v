@@ -4,7 +4,10 @@ module io (
     input [31:0] addr,  //地址总线
     input [31:0] din,
     input wr,           //写使能
-    output reg [31:0] dout
+    output reg [31:0] dout,
+
+    input rxd,
+    output txd
 );
 
 // uart registers
@@ -35,13 +38,17 @@ always @ (posedge clk) begin
     //同时判断是否有写使能和地址是否为数据寄存器地址
 end
 
-always @ (posedge clk) begin
-    if (valid)
-        USR[RXNE] <= 1;//有效信息，非空标志位置1
-end
+reg [31:0] next_USR;
+always @(*) begin
+    next_USR = USR;
+    next_USR[TC] = !busy;
 
-always @ (posedge clk) begin
-    USR[TC] <= !busy;//不忙，发送完成标志位置1
+    if (valid)
+        next_USR[RXNE] = 1'b1;
+    if (addr[7:0] == 8'h04 && !wr)
+        next_USR[RXNE] = 1'b0;
+    if (wr && addr[7:0] == 8'h00)
+        next_USR = din;
 end
 
 always @ (posedge clk) begin
@@ -51,24 +58,22 @@ always @ (posedge clk) begin
         UBRR <= 0;
         UCR1 <= 0;
     end
-    else if (wr) begin
-        case (addr[7:0])
-            8'h00: USR <= din;
-            8'h04: UDR <= din;
-            8'h08: UBRR <= din;
-            8'h0C: UCR1 <= din;
-        endcase
+    else begin
+        USR <= next_USR;
+        if (wr) begin
+            case (addr[7:0])
+                8'h04: UDR <= din;
+                8'h08: UBRR <= din;
+                8'h0C: UCR1 <= din;
+            endcase
+        end
     end
 end
 
 always @ (posedge clk) begin
     case (addr[7:0])
         8'h00: dout <= USR;
-        8'h04: begin
-            dout <= {24'h0, RDR};//八位补24个0
-            USR[RXNE] <= 0;
-        end
-        
+        8'h04: dout <= {24'h0, RDR};
         8'h08: dout <= UBRR;
         8'h0C: dout <= UCR1;
     endcase
