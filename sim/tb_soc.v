@@ -26,11 +26,12 @@ module tb_soc;
         # 2e6    $finish();
     end
 
-    wire TX;
+    wire txd;
 
     soc u_soc(
         .clk   (sys_clk   ),
-        .rst_n (rst_n )
+        .rst_n (rst_n ),
+        .txd   (txd   )
     );
 
 endmodule

@@ -2,27 +2,37 @@ module bus(
     input clk,
     input rst,
     input [31:0] inst_addr,//指令地址输入
-    output reg [31:0] inst,//指令输出
+    output [31:0] inst_dout,//指令输出
     
     input [31:0] mem_addr,//内存地址输入
     input [31:0] mem_din,   //数据输入
     input [ 3:0] mem_we,//数据写入使能
-    output reg [31:0] mem_dout//数据输出
+    output reg [31:0] mem_dout,//数据输出
+
+    input rxd,
+    output txd
 );
 
-localparam WIDTH = 12;//地址索引位数
+localparam WIDTH = 10;//地址索引位数
 // flash
-reg [31:0] flash [0:(1<<WIDTH)-1];
-reg [31:0] flash_dout;
-//大小是32*2^12=4bytes*4096=16KB
-//这里的flash起ROM的作用
-always @(posedge clk) begin
-    inst <= flash[inst_addr[WIDTH+1:2]];
-end
+wire [31:0] flash_dout;
 
-always @(posedge clk) begin
-    flash_dout <= flash[mem_addr[WIDTH+1:2]];
-end
+flash u_flash(
+    .clk        (clk        ),
+    .inst_addr  (inst_addr  ),
+    .inst_dout  (inst_dout  ),
+    .flash_addr (mem_addr   ),
+    .flash_dout (flash_dout )
+);
+
+// rom12 u_flash (
+//   .clka(clk),    // input wire clka
+//   .addra(inst_addr),  // input wire [31 : 0] addra
+//   .douta(inst_dout),  // output wire [31 : 0] douta
+//   .clkb(clk),    // input wire clkb
+//   .addrb(mem_addr),  // input wire [31 : 0] addrb
+//   .doutb(flash_dout)  // output wire [31 : 0] doutb
+// );
 
 // ram
 reg [31:0] ram [0:(1<<WIDTH)-1];//一共12片，每片32位
@@ -50,7 +60,9 @@ io u_io(
     .addr (mem_addr ),
     .din  (mem_din  ),
     .wr   (wr   ),
-    .dout (io_dout )
+    .dout (io_dout ),
+    .txd  (txd),
+    .rxd  (rxd)
 );
 
 // multiplexer
@@ -82,14 +94,6 @@ always @(*) begin
         // peripherals
         4'h4: wr = mem_we[0];
     endcase
-end
-
-initial begin
-	`ifdef XILINX_SIMULATOR
-        $readmemh("risc-mini.mem", flash);//在这里加载指令
-    `else
-        $readmemh("../src/risc-mini.mem", flash);
-    `endif
 end
 
 `ifdef SIMULATION
