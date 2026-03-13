@@ -28,9 +28,6 @@ wire [31:0] imm_S = $signed({inst[31:25], inst[11:7]});
 wire [31:0] imm_J = $signed({inst[31], inst[19:12], inst[20], inst[30:21], 1'b0});
 wire [31:0] imm_U = $signed({inst[31:12], 12'd0});
 
-wire is_imm = (opcode == `TYPE_I);
-wire jump = (opcode == `TYPE_B) || (opcode == `JAL);
-
 reg [1:0] state, next_state;
 localparam [1:0]
     NORMAL = 2'b00,
@@ -42,6 +39,36 @@ reg [31:0] regs [0:31];
 reg [31:0] rd, pc;
 wire [31:0] rs1 = rs1_addr == 0? 0 : regs[rs1_addr];
 wire [31:0] rs2 = rs2_addr == 0? 0 : regs[rs2_addr];
+
+reg [31:0] alu_dina, alu_dinb;
+wire [31:0] alu_dout;
+wire is_sra = funct7[5];
+reg is_sub;
+always @(*) begin
+    is_sub = 0;
+    alu_dina = rs1;
+    alu_dinb = rs2;
+    case (opcode)
+        `TYPE_R: begin
+            is_sub = funct7[5];
+        end
+        `TYPE_I: begin
+            alu_dinb = imm_I;
+        end
+    endcase
+end
+
+alu u_alu(
+    .dina   (alu_dina   ),
+    .dinb   (alu_dinb   ),
+    .funct3 (funct3 ),
+    .is_sub (is_sub ),
+    .is_sra (is_sra ),
+    .eq     (alu_eq     ),
+    .lt     (alu_lt     ),
+    .ltu    (alu_ltu    ),
+    .dout   (alu_dout   )
+);
 
 always @(*) begin
     next_pc = pc + 4;
@@ -57,44 +84,11 @@ always @(*) begin
             case (opcode)//analysis
                 `TYPE_R: begin
                     rd_addr = inst[11:7];
-                    case (funct3)
-                        `ADD: begin
-                            case (funct7)
-                                7'b0000000: rd = rs1 + rs2;
-                                7'b0100000: rd = rs1 - rs2;
-                            endcase
-                        end
-                        `SLL: rd = rs1 << rs2[4:0];
-                        `SLT: rd = $signed(rs1) < $signed(rs2);
-                        `SLTU: rd = rs1 < rs2;
-                        `XOR: rd = rs1 ^ rs2;
-                        `SR: begin
-                            case (funct7)
-                                7'b0000000: rd = rs1 >> rs2[4:0];
-                                7'b0100000: rd = $signed(rs1) >>> rs2[4:0];
-                            endcase
-                        end
-                        `OR: rd = rs1 | rs2;
-                        `AND: rd = rs1 & rs2;
-                    endcase
+                    rd = alu_dout;
                 end
                 `TYPE_I: begin
                     rd_addr = inst[11:7];
-                    case (funct3)
-                        `ADD: rd = rs1 + imm_I;
-                        `SLL: rd = rs1 << imm_I;
-                        `SLT: rd = $signed(rs1) < $signed(imm_I);
-                        `SLTU: rd = rs1 < imm_I;
-                        `XOR: rd = rs1 ^ imm_I;
-                        `SR: begin
-                            case (funct7)
-                                7'b0000000: rd = rs1 >> imm_I[4:0];
-                                7'b0100000: rd = $signed(rs1) >>> imm_I[4:0];
-                            endcase
-                        end
-                        `OR: rd = rs1 | imm_I;
-                        `AND: rd = rs1 & imm_I;
-                    endcase
+                    rd = alu_dout;
                 end
                 `TYPE_B: begin
                     case (funct3)

@@ -7,6 +7,7 @@ endif
 RTLS =  tb_soc.v                        \
         ../rtl/soc.v                    \
         ../rtl/core/cpu.v               \
+        ../rtl/core/alu.v               \
         ../rtl/peripherals/bus.v        \
         ../rtl/peripherals/flash.v      \
         ../rtl/peripherals/ram.v        \
