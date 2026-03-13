@@ -35,21 +35,16 @@ flash u_flash(
 // );
 
 // ram
-reg [31:0] ram [0:(1<<WIDTH)-1];//一共12片，每片32位
-reg [31:0] ram_dout;
+wire [31:0] ram_dout;
 reg [ 3:0] ram_we;
 
-always @(posedge clk) begin
-    ram_dout <= ram[mem_addr[WIDTH+1:2]];
-end
-
-always @(posedge clk) begin
-    ram[mem_addr[WIDTH+1:2]][ 7: 0] <= ram_we[0] ? mem_din[ 7: 0] : ram[mem_addr[WIDTH+1:2]][ 7: 0];
-    ram[mem_addr[WIDTH+1:2]][15: 8] <= ram_we[1] ? mem_din[15: 8] : ram[mem_addr[WIDTH+1:2]][15: 8];
-    ram[mem_addr[WIDTH+1:2]][23:16] <= ram_we[2] ? mem_din[23:16] : ram[mem_addr[WIDTH+1:2]][23:16];
-    ram[mem_addr[WIDTH+1:2]][31:24] <= ram_we[3] ? mem_din[31:24] : ram[mem_addr[WIDTH+1:2]][31:24];
-end
-//给ram赋值，不使能就保持不变
+ram u_ram(
+    .clk  (clk  ),
+    .addr (mem_addr ),
+    .din  (mem_din  ),
+    .we   (ram_we   ),
+    .dout (ram_dout )
+);
 
 // peripherals
 reg wr;
@@ -79,6 +74,7 @@ always @(*) begin
         4'h2: mem_dout = ram_dout;
         // peripherals
         4'h4: mem_dout = io_dout;
+        default: mem_dout = 32'h0;
     endcase
 end
 
