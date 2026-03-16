@@ -4,18 +4,18 @@ ifndef ICARUS
     VVP = vvp
 endif
 
-RTLS =  tb_soc.v                        \
-        ../rtl/soc.v                    \
-        ../rtl/core/cpu.v               \
-        ../rtl/core/alu.v               \
-        ../rtl/core/reg_file.v          \
-        ../rtl/peripherals/bus.v        \
-        ../rtl/peripherals/flash.v      \
-        ../rtl/peripherals/ram.v        \
-        ../rtl/peripherals/io.v         \
-        ../rtl/peripherals/reset_sync.v \
-        ../rtl/peripherals/uart_rx.v    \
-        ../rtl/peripherals/uart_tx.v    \
+RTLS =  tb_soc.sv                         \
+        ../rtl/soc.sv                    \
+        ../rtl/core/cpu.sv               \
+        ../rtl/core/alu.sv               \
+        ../rtl/core/reg_file.sv          \
+        ../rtl/peripherals/bus.sv        \
+        ../rtl/peripherals/flash.sv      \
+        ../rtl/peripherals/ram.sv        \
+        ../rtl/peripherals/io.sv         \
+        ../rtl/peripherals/reset_sync.sv \
+        ../rtl/peripherals/uart_rx.sv    \
+        ../rtl/peripherals/uart_tx.sv    \
 
 INCS = ../rtl/config.vh
 XSIM = risc-mini.vvp
