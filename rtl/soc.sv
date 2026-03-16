@@ -1,20 +1,24 @@
 module soc(
-    input clk,
-    input rst_n,
+    input  logic clk,
+    input  logic rst_n,
 
-    input rxd,
-    output txd
+    input  logic rxd,
+    output logic txd
 );
 
-wire rst;
+logic rst;
 reset_sync u_reset_sync(
     .clk   (clk   ),
     .rst_n (rst_n ),
     .rst   (rst   )
 );
 
-wire [31:0] inst_addr, inst, mem_addr, mem_din, mem_dout;
-wire [ 3:0] mem_we;
+logic [31:0] inst;
+logic [31:0] inst_addr;
+logic [31:0] mem_addr;
+logic [31:0] mem_din;
+logic [31:0] mem_dout;
+logic [ 3:0] mem_we;
 
 bus u_bus(
     .clk       (clk       ),
@@ -29,15 +33,30 @@ bus u_bus(
     .rxd       (rxd       )
 );
 
+logic [31:0] pc;
+logic        pc_en;
+logic [31:0] pc_target;
+
+pc_reg u_pc_reg(
+    .clk       (clk       ),
+    .rst       (rst       ),
+    .pc_en     (pc_en     ),
+    .pc_target (pc_target ),
+    .inst_addr (inst_addr ),
+    .pc        (pc        )
+);
+
 cpu u_cpu(
-    .clk      (clk      ),
-    .rst      (rst      ),
-    .inst     (inst     ),
-    .next_pc  (inst_addr),
-    .mem_dout (mem_dout ),
-    .mem_din  (mem_din  ),
-    .mem_addr (mem_addr ),
-    .mem_we   (mem_we   )
+    .clk       (clk       ),
+    .rst       (rst       ),
+    .pc        (pc        ),
+    .inst      (inst      ),
+    .pc_en     (pc_en     ),
+    .pc_target (pc_target ),
+    .mem_dout  (mem_dout  ),
+    .mem_din   (mem_din   ),
+    .mem_addr  (mem_addr  ),
+    .mem_we    (mem_we    )
 );
 
 `ifdef SIMULATION

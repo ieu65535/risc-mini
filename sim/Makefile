@@ -1,14 +1,15 @@
 
 ifndef ICARUS
-    ICARUS = iverilog -Wall
+    ICARUS = iverilog -Wall -g2005-sv
     VVP = vvp
 endif
 
-RTLS =  tb_soc.sv                         \
+RTLS =  tb_soc.sv                        \
         ../rtl/soc.sv                    \
         ../rtl/core/cpu.sv               \
         ../rtl/core/alu.sv               \
         ../rtl/core/reg_file.sv          \
+        ../rtl/core/pc_reg.sv            \
         ../rtl/peripherals/bus.sv        \
         ../rtl/peripherals/flash.sv      \
         ../rtl/peripherals/ram.sv        \

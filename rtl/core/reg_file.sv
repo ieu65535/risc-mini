@@ -12,7 +12,7 @@ module reg_file (
 
 reg [31:0] regs [0:31];
 
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
     regs[rd_addr] <= rd_data;
 end
 

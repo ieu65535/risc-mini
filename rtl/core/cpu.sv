@@ -2,16 +2,19 @@
 `include "../config.vh"
 
 module cpu(
-    input clk,
-    input rst,
-    input [31:0] inst,// 指令输入
-    output reg [31:0] next_pc,
+    input  logic        clk,
+    input  logic        rst,
+    input  logic [31:0] pc,
+    input  logic [31:0] inst,
+
+    output logic        pc_en,
+    output logic [31:0] pc_target,
 
     // memory bus interface
-    input  [31:0] mem_dout,
-    output reg [31:0] mem_din,
-    output reg [31:0] mem_addr,
-    output reg [ 3:0] mem_we
+    input  logic [31:0] mem_dout,
+    output logic [31:0] mem_din,
+    output logic [31:0] mem_addr,
+    output logic [ 3:0] mem_we
 );
 
 wire [6:0] opcode = inst[6:0];
@@ -28,7 +31,6 @@ wire [31:0] imm_S = $signed({inst[31:25], inst[11:7]});
 wire [31:0] imm_J = $signed({inst[31], inst[19:12], inst[20], inst[30:21], 1'b0});
 wire [31:0] imm_U = $signed({inst[31:12], 12'd0});
 
-reg [31:0] pc;
 reg [1:0] state, next_state;
 localparam [1:0]
     NORMAL = 2'b00,
@@ -81,13 +83,13 @@ alu u_alu(
 );
 
 always @(*) begin
-    next_pc = pc + 4;
-    if (rst) next_pc = 0;
     rd_data = 0;
     rd_addr = 0;
     mem_addr = 0;
     mem_we = 0;
     mem_din = 0;
+    pc_en = 0;
+    pc_target = 0;
     next_state = NORMAL;
     case (state)
         NORMAL: begin
@@ -102,16 +104,20 @@ always @(*) begin
                 end
                 `TYPE_B: begin
                     case (funct3)
-                        `BEQ: next_pc = (alu_eq) ? (pc + imm_B) : (pc + 4);
-                        `BNE: next_pc = (!alu_eq) ? (pc + imm_B) : (pc + 4);
-                        `BLT: next_pc = (alu_lt) ? (pc + imm_B) : (pc + 4);
-                        `BGE: next_pc = (!alu_lt) ? (pc + imm_B) : (pc + 4);
-                        `BLTU: next_pc = (alu_ltu) ? (pc + imm_B) : (pc + 4);
-                        `BGEU: next_pc = (!alu_ltu) ? (pc + imm_B) : (pc + 4);
+                        `BEQ: pc_en = alu_eq;
+                        `BNE: pc_en = !alu_eq;
+                        `BLT: pc_en = alu_lt;
+                        `BGE: pc_en = !alu_lt;
+                        `BLTU: pc_en = alu_ltu;
+                        `BGEU: pc_en = !alu_ltu;
                     endcase
+                    if (pc_en) begin
+                        pc_target = pc + imm_B;
+                    end
                 end
                 `TYPE_L: begin
-                    next_pc = pc;
+                    pc_en = 1;
+                    pc_target = pc;
                     next_state = LOAD;
                     mem_addr = rs1_data + imm_I;
                 end
@@ -160,12 +166,14 @@ always @(*) begin
                 `JAL: begin
                     rd_addr = inst[11:7];
                     rd_data = pc + 4;
-                    next_pc = pc + imm_J;
+                    pc_en = 1;
+                    pc_target = pc + imm_J;
                 end
                 `JALR: begin
                     rd_addr = inst[11:7];
                     rd_data = pc + 4;
-                    next_pc = (rs1_data + imm_I) & ~1;
+                    pc_en = 1;
+                    pc_target = (rs1_data + imm_I) & ~1;
                 end
                 `LUI: begin
                     rd_addr = inst[11:7];
@@ -225,17 +233,15 @@ end
 always @(posedge clk) begin
     if (rst) begin
         state <= NORMAL;
-        pc <= 0;
     end
     else begin
         state <= next_state;
-        pc <= next_pc;
     end
 end
 
 `ifdef SIMULATION
 initial begin
-	$dumpvars(1, pc, next_pc, state, next_state);
+	$dumpvars(1, state, next_state);
     $dumpvars(1, opcode, funct3, funct7);
 end
 `endif
