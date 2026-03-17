@@ -74,6 +74,8 @@ alu u_alu(
     .dout   (alu_dout   )
 );
 
+logic [31:0] shift;
+
 always @(*) begin
     dout = 0;
     rd_addr = 0;
@@ -83,6 +85,7 @@ always @(*) begin
     pc_en = 0;
     pc_target = 0;
     next_state = NORMAL;
+    shift = 0;
     case (state)
         NORMAL: begin
             case (opcode)//analysis
@@ -115,45 +118,14 @@ always @(*) begin
                 end
                 `TYPE_S: begin
                     mem_addr = rs1_data + imm_S;
+                    mem_din = rs2_data;
                     case (funct3)
-                        `SB: begin
-                            case (mem_addr[1:0])
-                                2'b00: begin
-                                    mem_din = rs2_data[7:0];
-                                    mem_we = 4'b0001;
-                                end
-                                2'b01: begin
-                                    mem_din = {rs2_data[7:0], 8'b0};
-                                    mem_we = 4'b0010;
-                                end
-                                2'b10: begin
-                                    mem_din = {rs2_data[7:0], 16'b0};
-                                    mem_we = 4'b0100;
-                                end
-                                2'b11: begin
-                                    mem_din = {rs2_data[7:0], 24'b0};
-                                    mem_we = 4'b1000;
-                                end
-                            endcase
-                        end
-                        `SH: begin
-                            case (mem_addr[1:0])
-                                2'b00: begin
-                                    mem_din = rs2_data[15:0];
-                                    mem_we = 4'b0011;
-                                end
-                                2'b10: begin
-                                    mem_din = {rs2_data[15:0], 16'b0};
-                                    mem_we = 4'b1100;
-                                end
-                                default: next_state = EXCEPT;
-                            endcase
-                        end
-                        `SW: begin
-                            mem_din = rs2_data;
-                            mem_we = 4'b1111;
-                        end
+                        `SB: mem_we = 4'b0001;
+                        `SH: mem_we = 4'b0011;
+                        `SW: mem_we = 4'b1111;
                     endcase
+                    mem_din = mem_din << {mem_addr[1:0], 3'b0};
+                    mem_we = mem_we << mem_addr[1:0];
                 end
                 `JAL: begin
                     rd_addr = inst[11:7];
@@ -181,38 +153,13 @@ always @(*) begin
         LOAD: begin
             rd_addr = inst[11:7];
             mem_addr = rs1_data + imm_I;
+            shift = mem_dout >> {mem_addr[1:0], 3'b0};
             case (funct3)
-                `LB: begin
-                    case (mem_addr[1:0])
-                        2'b00: dout = $signed(mem_dout[7:0]);
-                        2'b01: dout = $signed(mem_dout[15:8]);
-                        2'b10: dout = $signed(mem_dout[23:16]);
-                        2'b11: dout = $signed(mem_dout[31:24]);
-                    endcase
-                end
-                `LH: begin
-                    case (mem_addr[1:0])
-                        2'b00: dout = $signed(mem_dout[15:0]);
-                        2'b10: dout = $signed(mem_dout[31:16]);
-                        default: next_state = EXCEPT;
-                    endcase
-                end
+                `LB: dout = $signed(shift[7:0]);
+                `LH: dout = $signed(shift[15:0]);
                 `LW: dout = mem_dout;
-                `LBU: begin
-                    case (mem_addr[1:0])
-                        2'b00: dout = mem_dout[7:0];
-                        2'b01: dout = mem_dout[15:8];
-                        2'b10: dout = mem_dout[23:16];
-                        2'b11: dout = mem_dout[31:24];
-                    endcase
-                end
-                `LHU: begin
-                    case (mem_addr[1:0])
-                        2'b00: dout = mem_dout[15:0];
-                        2'b10: dout = mem_dout[31:16];
-                        default: next_state = EXCEPT;
-                    endcase
-                end
+                `LBU: dout = shift[7:0];
+                `LHU: dout = shift[15:0];
             endcase
         end
         EXCEPT: begin
