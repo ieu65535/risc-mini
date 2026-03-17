@@ -86,8 +86,9 @@ alu u_alu(
     .dout   (alu_dout   )
 );
 
-wire [31:0] load_addr = rs1_data + imm_I;
-wire [31:0] shift = mem_dout >> {load_addr[1:0], 3'b0};
+assign mem_addr = alu_dout;
+assign mem_din = rs2_data << {mem_addr[1:0], 3'b0};
+wire [31:0] shift = mem_dout >> {mem_addr[1:0], 3'b0};
 
 always @(*) begin
     dout = 0;
@@ -114,9 +115,7 @@ end
 
 always @(*) begin
     rd_addr = 0;
-    mem_addr = 0;
     mem_we = 0;
-    mem_din = 0;
     pc_en = 0;
     pc_target = 0;
     next_state = NORMAL;
@@ -139,17 +138,13 @@ always @(*) begin
                     pc_en = 1;
                     pc_target = pc;
                     next_state = LOAD;
-                    mem_addr = rs1_data + imm_I;
                 end
                 `TYPE_S: begin
-                    mem_addr = rs1_data + imm_S;
-                    mem_din = rs2_data;
                     case (funct3)
                         `SB: mem_we = 4'b0001;
                         `SH: mem_we = 4'b0011;
                         `SW: mem_we = 4'b1111;
                     endcase
-                    mem_din = mem_din << {mem_addr[1:0], 3'b0};
                     mem_we = mem_we << mem_addr[1:0];
                 end
                 `JAL: begin
