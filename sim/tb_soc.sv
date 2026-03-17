@@ -17,7 +17,7 @@ module tb_soc;
 
     initial begin
 `ifdef __ICARUS__
-        $dumpfile("risc-mini.vcd");
+        // $dumpfile("risc-mini.vcd");
         // $dumpvars();
 `endif
         $display("reset (startup)");

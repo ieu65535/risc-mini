@@ -33,7 +33,7 @@ bus u_bus(
     .rxd       (rxd       )
 );
 
-pipeline u_cpu(
+cpu u_cpu(
     .clk       (clk       ),
     .rst       (rst       ),
     .inst      (inst      ),

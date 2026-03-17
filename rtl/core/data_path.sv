@@ -9,6 +9,13 @@ module data_path(
 
     output logic        pc_en,
     output logic [31:0] pc_target,
+    output logic [31:0] dout,
+
+    output logic [ 4:0] rs1_addr,
+    output logic [ 4:0] rs2_addr,
+    input  logic [31:0] rs1_data,
+    input  logic [31:0] rs2_data,
+    output logic [ 4:0] rd_addr,
 
     // memory bus interface
     input  logic [31:0] mem_dout,
@@ -21,9 +28,8 @@ wire [6:0] opcode = inst[6:0];
 wire [2:0] funct3 = inst[14:12];
 wire [6:0] funct7 = inst[31:25];
 
-wire [4:0] rs1_addr = inst[19:15];
-wire [4:0] rs2_addr = inst[24:20];
-reg  [4:0] rd_addr;
+assign rs1_addr = inst[19:15];
+assign rs2_addr = inst[24:20];
 
 wire [31:0] imm_I = $signed(inst[31:20]);
 wire [31:0] imm_B = $signed({inst[31], inst[7], inst[30:25], inst[11:8], 1'b0});
@@ -37,20 +43,6 @@ localparam [1:0]
     LOAD   = 2'b01,//需要多周期
     EXCEPT = 2'b10;
 //状态机，正常执行，加载数据，异常
-
-reg [31:0] rd_data;
-wire [31:0] rs1_data;
-wire [31:0] rs2_data;
-reg_file u_reg_file(
-    .clk      (clk      ),
-    .rd_addr  (rd_addr  ),
-    .rd_data  (rd_data  ),
-    .rs1_addr (rs1_addr ),
-    .rs2_addr (rs2_addr ),
-    .rs1_data (rs1_data ),
-    .rs2_data (rs2_data )
-);
-
 
 reg [31:0] alu_dina, alu_dinb;
 wire [31:0] alu_dout;
@@ -83,7 +75,7 @@ alu u_alu(
 );
 
 always @(*) begin
-    rd_data = 0;
+    dout = 0;
     rd_addr = 0;
     mem_addr = 0;
     mem_we = 0;
@@ -96,11 +88,11 @@ always @(*) begin
             case (opcode)//analysis
                 `TYPE_R: begin
                     rd_addr = inst[11:7];
-                    rd_data = alu_dout;
+                    dout = alu_dout;
                 end
                 `TYPE_I: begin
                     rd_addr = inst[11:7];
-                    rd_data = alu_dout;
+                    dout = alu_dout;
                 end
                 `TYPE_B: begin
                     case (funct3)
@@ -165,23 +157,23 @@ always @(*) begin
                 end
                 `JAL: begin
                     rd_addr = inst[11:7];
-                    rd_data = pc + 4;
+                    dout = pc + 4;
                     pc_en = 1;
                     pc_target = pc + imm_J;
                 end
                 `JALR: begin
                     rd_addr = inst[11:7];
-                    rd_data = pc + 4;
+                    dout = pc + 4;
                     pc_en = 1;
                     pc_target = (rs1_data + imm_I) & ~1;
                 end
                 `LUI: begin
                     rd_addr = inst[11:7];
-                    rd_data = imm_U;
+                    dout = imm_U;
                 end
                 `AUIPC: begin
                     rd_addr = inst[11:7];
-                    rd_data = pc + imm_U;
+                    dout = pc + imm_U;
                 end
                 default: next_state = EXCEPT;
             endcase
@@ -192,32 +184,32 @@ always @(*) begin
             case (funct3)
                 `LB: begin
                     case (mem_addr[1:0])
-                        2'b00: rd_data = $signed(mem_dout[7:0]);
-                        2'b01: rd_data = $signed(mem_dout[15:8]);
-                        2'b10: rd_data = $signed(mem_dout[23:16]);
-                        2'b11: rd_data = $signed(mem_dout[31:24]);
+                        2'b00: dout = $signed(mem_dout[7:0]);
+                        2'b01: dout = $signed(mem_dout[15:8]);
+                        2'b10: dout = $signed(mem_dout[23:16]);
+                        2'b11: dout = $signed(mem_dout[31:24]);
                     endcase
                 end
                 `LH: begin
                     case (mem_addr[1:0])
-                        2'b00: rd_data = $signed(mem_dout[15:0]);
-                        2'b10: rd_data = $signed(mem_dout[31:16]);
+                        2'b00: dout = $signed(mem_dout[15:0]);
+                        2'b10: dout = $signed(mem_dout[31:16]);
                         default: next_state = EXCEPT;
                     endcase
                 end
-                `LW: rd_data = mem_dout;
+                `LW: dout = mem_dout;
                 `LBU: begin
                     case (mem_addr[1:0])
-                        2'b00: rd_data = mem_dout[7:0];
-                        2'b01: rd_data = mem_dout[15:8];
-                        2'b10: rd_data = mem_dout[23:16];
-                        2'b11: rd_data = mem_dout[31:24];
+                        2'b00: dout = mem_dout[7:0];
+                        2'b01: dout = mem_dout[15:8];
+                        2'b10: dout = mem_dout[23:16];
+                        2'b11: dout = mem_dout[31:24];
                     endcase
                 end
                 `LHU: begin
                     case (mem_addr[1:0])
-                        2'b00: rd_data = mem_dout[15:0];
-                        2'b10: rd_data = mem_dout[31:16];
+                        2'b00: dout = mem_dout[15:0];
+                        2'b10: dout = mem_dout[31:16];
                         default: next_state = EXCEPT;
                     endcase
                 end
