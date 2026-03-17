@@ -33,29 +33,14 @@ bus u_bus(
     .rxd       (rxd       )
 );
 
-logic [31:0] pc;
-logic        pc_en;
-logic [31:0] pc_target;
-
-pc_reg u_pc_reg(
+pipeline u_cpu(
     .clk       (clk       ),
     .rst       (rst       ),
-    .pc_en     (pc_en     ),
-    .pc_target (pc_target ),
-    .inst_addr (inst_addr ),
-    .pc        (pc        )
-);
-
-cpu u_cpu(
-    .clk       (clk       ),
-    .rst       (rst       ),
-    .pc        (pc        ),
     .inst      (inst      ),
-    .pc_en     (pc_en     ),
-    .pc_target (pc_target ),
-    .mem_dout  (mem_dout  ),
-    .mem_din   (mem_din   ),
+    .inst_addr (inst_addr ),
     .mem_addr  (mem_addr  ),
+    .mem_din   (mem_din   ),
+    .mem_dout  (mem_dout  ),
     .mem_we    (mem_we    )
 );
 

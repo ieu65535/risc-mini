@@ -10,6 +10,9 @@ RTLS =  tb_soc.sv                        \
         ../rtl/core/alu.sv               \
         ../rtl/core/reg_file.sv          \
         ../rtl/core/pc_reg.sv            \
+        ../rtl/core/data_path.sv         \
+        ../rtl/core/pipeline.sv          \
+        ../rtl/core/ex.sv                \
         ../rtl/peripherals/bus.sv        \
         ../rtl/peripherals/flash.sv      \
         ../rtl/peripherals/ram.sv        \

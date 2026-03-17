@@ -1,7 +1,7 @@
 `include "instructions.vh"
 `include "../config.vh"
 
-module data_path(
+module ex(
     input  logic        clk,
     input  logic        rst,
     input  logic [31:0] pc,
