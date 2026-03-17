@@ -8,15 +8,13 @@ module alu (
     input is_sub,
     input is_sra,
 
-    output eq,
-    output lt,
-    output ltu,
-    output reg [31:0] dout
+    output logic        cond,
+    output logic [31:0] dout
 );
 
-assign eq = dina == dinb;
-assign lt = $signed(dina) < $signed(dinb);
-assign ltu = dina < dinb;
+wire eq = dina == dinb;
+wire lt = $signed(dina) < $signed(dinb);
+wire ltu = dina < dinb;
 
 always @(*) begin
     case (funct3)
@@ -26,7 +24,12 @@ always @(*) begin
             else
                 dout = dina + dinb;
         end
-        `SLL:   dout = dina << dinb[4:0];
+        `SLL: begin
+            if (is_sub)
+                dout = dina;
+            else
+                dout = dina << dinb[4:0];
+        end
         `SLT:   dout = lt;
         `SLTU:  dout = ltu;
         `XOR:   dout = dina ^ dinb;
@@ -39,6 +42,17 @@ always @(*) begin
         `OR:    dout = dina | dinb;
         `AND:   dout = dina & dinb;
         default:   dout = 32'h0;
+    endcase
+end
+
+always @(*) begin
+    case (funct3)
+        `BEQ: cond = eq;
+        `BNE: cond = !eq;
+        `BLT: cond = lt;
+        `BGE: cond = !lt;
+        `BLTU: cond = ltu;
+        `BGEU: cond = !ltu;
     endcase
 end
 

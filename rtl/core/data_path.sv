@@ -1,4 +1,5 @@
 `include "instructions.vh"
+`include "micro.vh"
 `include "../config.vh"
 
 module data_path(
@@ -21,7 +22,17 @@ module data_path(
     input  logic [31:0] mem_dout,
     output logic [31:0] mem_din,
     output logic [31:0] mem_addr,
-    output logic [ 3:0] mem_we
+    output logic [ 3:0] mem_we,
+
+    input  logic inst_valid,
+    input  logic [1:0] op1_sel,
+    input  logic [1:0] op2_sel,
+    input  logic [2:0] alu_ctrl,
+    input  logic       is_sub,
+    input  logic       is_sra,
+    input  logic       rd_en,
+    input  logic [1:0] wb_sel,
+    input  logic [1:0] pc_sel
 );
 
 wire [6:0] opcode = inst[6:0];
@@ -44,40 +55,64 @@ localparam [1:0]
     EXCEPT = 2'b10;
 //状态机，正常执行，加载数据，异常
 
-reg [31:0] alu_dina, alu_dinb;
-wire [31:0] alu_dout;
-wire is_sra = funct7[5];
-reg is_sub;
-always @(*) begin
-    is_sub = 0;
-    alu_dina = rs1_data;
-    alu_dinb = rs2_data;
-    case (opcode)
-        `TYPE_R: begin
-            is_sub = funct7[5];
-        end
-        `TYPE_I: begin
-            alu_dinb = imm_I;
-        end
+logic [31:0] alu_dina;
+logic [31:0] alu_dinb;
+logic [31:0] alu_dout;
+
+always_comb begin
+    case (op1_sel)
+        `OP1_RS1: alu_dina = rs1_data;
+        `OP1_IMU: alu_dina = imm_U;
+        default: alu_dina = rs1_data;
+    endcase
+end
+
+always_comb begin
+    case (op2_sel)
+        `OP2_RS2: alu_dinb = rs2_data;
+        `OP2_IMI: alu_dinb = imm_I;
+        `OP2_IMS: alu_dinb = imm_S;
+        `OP2_PC:  alu_dinb = pc;
     endcase
 end
 
 alu u_alu(
     .dina   (alu_dina   ),
     .dinb   (alu_dinb   ),
-    .funct3 (funct3 ),
+    .funct3 (alu_ctrl ),
     .is_sub (is_sub ),
     .is_sra (is_sra ),
-    .eq     (alu_eq     ),
-    .lt     (alu_lt     ),
-    .ltu    (alu_ltu    ),
+    .cond   (cond   ),
     .dout   (alu_dout   )
 );
 
-logic [31:0] shift;
+wire [31:0] load_addr = rs1_data + imm_I;
+wire [31:0] shift = mem_dout >> {load_addr[1:0], 3'b0};
 
 always @(*) begin
     dout = 0;
+    case (state)
+        NORMAL: begin
+            case (wb_sel)
+                `WB_ALU: dout = alu_dout;
+                `WB_MEM: dout = 0;
+                `WB_PC4: dout = pc + 4;
+                `WB_CSR: dout = 0;
+            endcase
+        end
+        LOAD: begin
+            case (funct3)
+                `LB: dout = $signed(shift[7:0]);
+                `LH: dout = $signed(shift[15:0]);
+                `LW: dout = mem_dout;
+                `LBU: dout = shift[7:0];
+                `LHU: dout = shift[15:0];
+            endcase
+        end
+    endcase
+end
+
+always @(*) begin
     rd_addr = 0;
     mem_addr = 0;
     mem_we = 0;
@@ -85,29 +120,19 @@ always @(*) begin
     pc_en = 0;
     pc_target = 0;
     next_state = NORMAL;
-    shift = 0;
     case (state)
         NORMAL: begin
             case (opcode)//analysis
                 `TYPE_R: begin
                     rd_addr = inst[11:7];
-                    dout = alu_dout;
                 end
                 `TYPE_I: begin
                     rd_addr = inst[11:7];
-                    dout = alu_dout;
                 end
                 `TYPE_B: begin
-                    case (funct3)
-                        `BEQ: pc_en = alu_eq;
-                        `BNE: pc_en = !alu_eq;
-                        `BLT: pc_en = alu_lt;
-                        `BGE: pc_en = !alu_lt;
-                        `BLTU: pc_en = alu_ltu;
-                        `BGEU: pc_en = !alu_ltu;
-                    endcase
-                    if (pc_en) begin
+                    if (cond) begin
                         pc_target = pc + imm_B;
+                        pc_en = 1;
                     end
                 end
                 `TYPE_L: begin
@@ -129,38 +154,25 @@ always @(*) begin
                 end
                 `JAL: begin
                     rd_addr = inst[11:7];
-                    dout = pc + 4;
                     pc_en = 1;
                     pc_target = pc + imm_J;
                 end
                 `JALR: begin
                     rd_addr = inst[11:7];
-                    dout = pc + 4;
                     pc_en = 1;
                     pc_target = (rs1_data + imm_I) & ~1;
                 end
                 `LUI: begin
                     rd_addr = inst[11:7];
-                    dout = imm_U;
                 end
                 `AUIPC: begin
                     rd_addr = inst[11:7];
-                    dout = pc + imm_U;
                 end
                 default: next_state = EXCEPT;
             endcase
         end
         LOAD: begin
             rd_addr = inst[11:7];
-            mem_addr = rs1_data + imm_I;
-            shift = mem_dout >> {mem_addr[1:0], 3'b0};
-            case (funct3)
-                `LB: dout = $signed(shift[7:0]);
-                `LH: dout = $signed(shift[15:0]);
-                `LW: dout = mem_dout;
-                `LBU: dout = shift[7:0];
-                `LHU: dout = shift[15:0];
-            endcase
         end
         EXCEPT: begin
             next_state = EXCEPT;
@@ -168,7 +180,6 @@ always @(*) begin
     endcase
 end
 
-//load the updated data(装载更新)
 always @(posedge clk) begin
     if (rst) begin
         state <= NORMAL;

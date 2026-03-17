@@ -8,6 +8,7 @@ RTLS =  tb_soc.sv                        \
         ../rtl/soc.sv                    \
         ../rtl/core/cpu.sv               \
         ../rtl/core/alu.sv               \
+        ../rtl/core/ctrl.sv              \
         ../rtl/core/reg_file.sv          \
         ../rtl/core/pc_reg.sv            \
         ../rtl/core/data_path.sv         \

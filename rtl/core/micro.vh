@@ -1,10 +1,21 @@
-`define ALU_ADD  4'h0
-`define ALU_SUB  4'h1
-`define ALU_AND  4'h2
-`define ALU_OR   4'h3
-`define ALU_XOR  4'h4
-`define ALU_SLT  4'h5
-`define ALU_SLTU 4'h6
-`define ALU_SLL  4'h7
-`define ALU_SRL  4'h8
-`define ALU_SRA  4'h9
+// wb_sel
+`define WB_ALU   2'b00
+`define WB_MEM   2'b01
+`define WB_PC4   2'b10
+`define WB_CSR   2'b11
+
+// op1_sel
+`define OP1_RS1  2'b00
+`define OP1_IMU  2'b01
+
+// op2_sel
+`define OP2_RS2  2'b00
+`define OP2_IMI  2'b01
+`define OP2_IMS  2'b10
+`define OP2_PC   2'b11
+
+// pc_sel
+`define PC_N     2'b00
+`define PC_J     2'b01
+`define PC_JR    2'b10
+`define PC_B     2'b11

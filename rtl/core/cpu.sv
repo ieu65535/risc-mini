@@ -40,23 +40,55 @@ reg_file u_reg_file(
     .rs2_data (rs2_data )
 );
 
+logic inst_valid;
+logic [1:0] op1_sel;
+logic [1:0] op2_sel;
+logic [2:0] alu_ctrl;
+logic       is_sub;
+logic       is_sra;
+logic       rd_en;
+logic [1:0] wb_sel;
+logic [1:0] pc_sel;
+
+ctrl u_ctrl(
+    .inst       (inst       ),
+    .inst_valid (inst_valid ),
+    .op1_sel    (op1_sel    ),
+    .op2_sel    (op2_sel    ),
+    .alu_ctrl   (alu_ctrl   ),
+    .is_sub     (is_sub     ),
+    .is_sra     (is_sra     ),
+    .rd_en      (rd_en      ),
+    .wb_sel     (wb_sel     ),
+    .pc_sel     (pc_sel     )
+);
+
 data_path u_data_path(
-    .clk       (clk       ),
-    .rst       (rst       ),
-    .pc        (pc        ),
-    .inst      (inst      ),
-    .pc_en     (pc_en     ),
-    .pc_target (pc_target ),
-    .dout      (rd_data   ),
-    .rs1_addr  (rs1_addr  ),
-    .rs2_addr  (rs2_addr  ),
-    .rs1_data  (rs1_data  ),
-    .rs2_data  (rs2_data  ),
-    .rd_addr   (rd_addr   ),
-    .mem_dout  (mem_dout  ),
-    .mem_din   (mem_din   ),
-    .mem_addr  (mem_addr  ),
-    .mem_we    (mem_we    )
+    .clk        (clk        ),
+    .rst        (rst        ),
+    .pc         (pc         ),
+    .inst       (inst       ),
+    .pc_en      (pc_en      ),
+    .pc_target  (pc_target  ),
+    .dout       (rd_data    ),
+    .rs1_addr   (rs1_addr   ),
+    .rs2_addr   (rs2_addr   ),
+    .rs1_data   (rs1_data   ),
+    .rs2_data   (rs2_data   ),
+    .rd_addr    (rd_addr    ),
+    .mem_dout   (mem_dout   ),
+    .mem_din    (mem_din    ),
+    .mem_addr   (mem_addr   ),
+    .mem_we     (mem_we     ),
+    .inst_valid (inst_valid ),
+    .op1_sel    (op1_sel    ),
+    .op2_sel    (op2_sel    ),
+    .alu_ctrl   (alu_ctrl   ),
+    .is_sub     (is_sub     ),
+    .is_sra     (is_sra     ),
+    .rd_en      (rd_en      ),
+    .wb_sel     (wb_sel     ),
+    .pc_sel     (pc_sel     )
 );
 
 endmodule
