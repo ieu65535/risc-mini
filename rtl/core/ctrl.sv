@@ -9,6 +9,7 @@ module ctrl (
     output logic [2:0] alu_ctrl,
     output logic       is_sub,
     output logic       is_sra,
+    output logic [3:0] mem_mask,
     output logic       rd_en,
     output logic [1:0] wb_sel,
     output logic [1:0] pc_sel
@@ -24,6 +25,7 @@ always_comb begin
     alu_ctrl = `ADD;
     is_sub = 0;
     is_sra = funct7_5;
+    mem_mask = 4'b0;
     rd_en = 0;
     wb_sel = `WB_ALU;
     pc_sel = `PC_N;
@@ -49,6 +51,11 @@ always_comb begin
         end
         `TYPE_S: begin
             op2_sel = `OP2_IMS;
+            case (funct3)
+                `SB: mem_mask = 4'b0001;
+                `SH: mem_mask = 4'b0011;
+                `SW: mem_mask = 4'b1111;
+            endcase
         end
         `JAL: begin
             rd_en = 1;

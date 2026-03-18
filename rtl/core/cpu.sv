@@ -11,19 +11,6 @@ module cpu(
     output logic [ 3:0] mem_we
 );
 
-logic [31:0] pc;
-logic        pc_en;
-logic [31:0] pc_target;
-
-pc_reg u_pc_reg(
-    .clk       (clk       ),
-    .rst       (rst       ),
-    .pc_en     (pc_en     ),
-    .pc_target (pc_target ),
-    .inst_addr (inst_addr ),
-    .pc        (pc        )
-);
-
 logic [ 4:0] rs1_addr;
 logic [ 4:0] rs2_addr;
 logic [31:0] rs1_data;
@@ -46,6 +33,7 @@ logic [1:0] op2_sel;
 logic [2:0] alu_ctrl;
 logic       is_sub;
 logic       is_sra;
+logic [3:0] mem_mask;
 logic       rd_en;
 logic [1:0] wb_sel;
 logic [1:0] pc_sel;
@@ -58,6 +46,7 @@ ctrl u_ctrl(
     .alu_ctrl   (alu_ctrl   ),
     .is_sub     (is_sub     ),
     .is_sra     (is_sra     ),
+    .mem_mask   (mem_mask   ),
     .rd_en      (rd_en      ),
     .wb_sel     (wb_sel     ),
     .pc_sel     (pc_sel     )
@@ -66,10 +55,8 @@ ctrl u_ctrl(
 data_path u_data_path(
     .clk        (clk        ),
     .rst        (rst        ),
-    .pc         (pc         ),
     .inst       (inst       ),
-    .pc_en      (pc_en      ),
-    .pc_target  (pc_target  ),
+    .inst_addr  (inst_addr  ),
     .dout       (rd_data    ),
     .rs1_addr   (rs1_addr   ),
     .rs2_addr   (rs2_addr   ),
@@ -86,6 +73,7 @@ data_path u_data_path(
     .alu_ctrl   (alu_ctrl   ),
     .is_sub     (is_sub     ),
     .is_sra     (is_sra     ),
+    .mem_mask   (mem_mask   ),
     .rd_en      (rd_en      ),
     .wb_sel     (wb_sel     ),
     .pc_sel     (pc_sel     )

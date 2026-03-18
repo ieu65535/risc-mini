@@ -5,11 +5,9 @@
 module data_path(
     input  logic        clk,
     input  logic        rst,
-    input  logic [31:0] pc,
     input  logic [31:0] inst,
+    output logic [31:0] inst_addr,
 
-    output logic        pc_en,
-    output logic [31:0] pc_target,
     output logic [31:0] dout,
 
     output logic [ 4:0] rs1_addr,
@@ -30,6 +28,7 @@ module data_path(
     input  logic [2:0] alu_ctrl,
     input  logic       is_sub,
     input  logic       is_sra,
+    input  logic [3:0] mem_mask,
     input  logic       rd_en,
     input  logic [1:0] wb_sel,
     input  logic [1:0] pc_sel
@@ -48,7 +47,9 @@ wire [31:0] imm_S = $signed({inst[31:25], inst[11:7]});
 wire [31:0] imm_J = $signed({inst[31], inst[19:12], inst[20], inst[30:21], 1'b0});
 wire [31:0] imm_U = $signed({inst[31:12], 12'd0});
 
-reg [1:0] state, next_state;
+logic [31:0] pc, next_pc;
+assign inst_addr = next_pc;
+logic [ 1:0] state, next_state;
 localparam [1:0]
     NORMAL = 2'b00,
     LOAD   = 2'b01,//需要多周期
@@ -88,6 +89,7 @@ alu u_alu(
 
 assign mem_addr = alu_dout;
 assign mem_din = rs2_data << {mem_addr[1:0], 3'b0};
+assign mem_we = mem_mask << mem_addr[1:0];
 wire [31:0] shift = mem_dout >> {mem_addr[1:0], 3'b0};
 
 always @(*) begin
@@ -115,9 +117,7 @@ end
 
 always @(*) begin
     rd_addr = 0;
-    mem_we = 0;
-    pc_en = 0;
-    pc_target = 0;
+    next_pc = pc + 4;
     next_state = NORMAL;
     case (state)
         NORMAL: begin
@@ -130,32 +130,21 @@ always @(*) begin
                 end
                 `TYPE_B: begin
                     if (cond) begin
-                        pc_target = pc + imm_B;
-                        pc_en = 1;
+                        next_pc = pc + imm_B;
                     end
                 end
                 `TYPE_L: begin
-                    pc_en = 1;
-                    pc_target = pc;
+                    next_pc = pc;
                     next_state = LOAD;
                 end
-                `TYPE_S: begin
-                    case (funct3)
-                        `SB: mem_we = 4'b0001;
-                        `SH: mem_we = 4'b0011;
-                        `SW: mem_we = 4'b1111;
-                    endcase
-                    mem_we = mem_we << mem_addr[1:0];
-                end
+                `TYPE_S: ;
                 `JAL: begin
                     rd_addr = inst[11:7];
-                    pc_en = 1;
-                    pc_target = pc + imm_J;
+                    next_pc = pc + imm_J;
                 end
                 `JALR: begin
                     rd_addr = inst[11:7];
-                    pc_en = 1;
-                    pc_target = (rs1_data + imm_I) & ~1;
+                    next_pc = (rs1_data + imm_I) & ~1;
                 end
                 `LUI: begin
                     rd_addr = inst[11:7];
@@ -175,7 +164,15 @@ always @(*) begin
     endcase
 end
 
-always @(posedge clk) begin
+always_ff @(posedge clk) begin
+    if (rst) begin
+        pc <= -4;
+    end else begin
+        pc <= next_pc;
+    end
+end
+
+always_ff @(posedge clk) begin
     if (rst) begin
         state <= NORMAL;
     end
