@@ -28,8 +28,8 @@ pc_reg u_pc_reg(
     .pc        (pc        )
 );
 
-logic [ 4:0] rs1_addr;
-logic [ 4:0] rs2_addr;
+wire [ 4:0] rs1_addr = inst[19:15];
+wire [ 4:0] rs2_addr = inst[24:20];
 logic [31:0] rs1_data;
 logic [31:0] rs2_data;
 logic [ 4:0] rd_addr;
@@ -44,6 +44,27 @@ reg_file u_reg_file(
     .rs1_data (rs1_data ),
     .rs2_data (rs2_data )
 );
+
+logic [31:0] rs1;
+logic [31:0] rs2;
+always_comb begin
+    if (rs1_addr == 0) rs1 = 0;
+    else begin
+        if (rs1_addr == rd_addr)
+            rs1 = rd_data;
+        else
+            rs1 = rs1_data;
+    end
+end
+always_comb begin
+    if (rs2_addr == 0) rs2 = 0;
+    else begin
+        if (rs2_addr == rd_addr)
+            rs2 = rd_data;
+        else
+            rs2 = rs2_data;
+    end
+end
 
 logic inst_valid;
 logic [1:0] op1_sel;
@@ -74,8 +95,8 @@ ex u_ex(
     .inst     (inst     ),
     .alu_dout (alu_dout ),
     .alu_cond (alu_cond ),
-    .rs1_data (rs1_data ),
-    .rs2_data (rs2_data ),
+    .rs1_data (rs1 ),
+    .rs2_data (rs2 ),
     .mem_din  (mem_din  ),
     .mem_we   (mem_we   ),
     .op1_sel  (op1_sel  ),

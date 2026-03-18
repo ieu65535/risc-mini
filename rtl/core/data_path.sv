@@ -40,6 +40,8 @@ wire [6:0] funct7 = inst[31:25];
 
 assign rs1_addr = inst[19:15];
 assign rs2_addr = inst[24:20];
+wire [31:0] rs1 = (rs1_addr == 0)? 0 : rs1_data;
+wire [31:0] rs2 = (rs2_addr == 0)? 0 : rs2_data;
 
 wire [31:0] imm_I = $signed(inst[31:20]);
 wire [31:0] imm_B = $signed({inst[31], inst[7], inst[30:25], inst[11:8], 1'b0});
@@ -62,15 +64,15 @@ logic [31:0] alu_dout;
 
 always_comb begin
     case (op1_sel)
-        `OP1_RS1: alu_dina = rs1_data;
+        `OP1_RS1: alu_dina = rs1;
         `OP1_IMU: alu_dina = imm_U;
-        default: alu_dina = rs1_data;
+        default: alu_dina = rs1;
     endcase
 end
 
 always_comb begin
     case (op2_sel)
-        `OP2_RS2: alu_dinb = rs2_data;
+        `OP2_RS2: alu_dinb = rs2;
         `OP2_IMI: alu_dinb = imm_I;
         `OP2_IMS: alu_dinb = imm_S;
         `OP2_PC:  alu_dinb = pc;
@@ -88,7 +90,7 @@ alu u_alu(
 );
 
 assign mem_addr = alu_dout;
-assign mem_din = rs2_data << {mem_addr[1:0], 3'b0};
+assign mem_din = rs2 << {mem_addr[1:0], 3'b0};
 assign mem_we = mem_mask << mem_addr[1:0];
 wire [31:0] shift = mem_dout >> {mem_addr[1:0], 3'b0};
 
@@ -144,7 +146,7 @@ always @(*) begin
                 end
                 `JALR: begin
                     rd_addr = inst[11:7];
-                    next_pc = (rs1_data + imm_I) & ~1;
+                    next_pc = (rs1 + imm_I) & ~1;
                 end
                 `LUI: begin
                     rd_addr = inst[11:7];

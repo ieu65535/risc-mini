@@ -1,3 +1,4 @@
+`include "../config.vh"
 module flash(
     input clk,
     input [31:0] inst_addr,
