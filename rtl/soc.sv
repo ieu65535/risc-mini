@@ -1,3 +1,4 @@
+`include "config.vh"
 module soc(
     input  logic clk,
     input  logic rst_n,
@@ -33,7 +34,7 @@ bus u_bus(
     .rxd       (rxd       )
 );
 
-cpu u_cpu(
+pipeline u_cpu(
     .clk       (clk       ),
     .rst       (rst       ),
     .inst      (inst      ),
