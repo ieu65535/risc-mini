@@ -25,7 +25,8 @@ pc_reg u_pc_reg(
     .alu_cond  (alu_cond  ),
     .pc_sel    (pc_sel    ),
     .inst_addr (inst_addr ),
-    .pc        (pc        )
+    .pc        (pc        ),
+    .stall     (load_use_stall)
 );
 
 wire [ 4:0] rs1_addr = inst[19:15];
@@ -44,11 +45,6 @@ reg_file u_reg_file(
     .rs1_data (rs1_data ),
     .rs2_data (rs2_data )
 );
-
-logic [31:0] rs1;
-logic [31:0] rs2;
-assign rs1 = rs1_data;
-assign rs2 = rs2_data;
 
 logic inst_valid;
 logic [1:0] op1_sel;
@@ -76,6 +72,35 @@ ctrl u_ctrl(
     .pc_sel     (pc_sel     )
 );
 
+logic load_use_stall;
+
+assign load_use_stall = (wb_sel_mem == `WB_MEM) && (rd_addr_mem != 5'b0) && ((rs1_addr == rd_addr_mem) || (rs2_addr == rd_addr_mem));
+
+logic [31:0] rs1;
+logic [31:0] rs2;
+
+always_comb begin
+    rs1 = rs1_data; 
+    if (rs1_addr != 5'b0) begin
+        if (rs1_addr == rd_addr_mem) begin
+            rs1 = alu_dout_mem;
+        end else if (rs1_addr == rd_addr) begin 
+            rs1 = rd_data;
+        end
+    end
+end
+
+always_comb begin
+    rs2 = rs2_data;
+    if (rs2_addr != 5'b0) begin
+        if (rs2_addr == rd_addr_mem) begin
+            rs2 = alu_dout_mem;
+        end else if (rs2_addr == rd_addr) begin
+            rs2 = rd_data;
+        end
+    end
+end
+
 ex u_ex(
     .pc       (pc        ),
     .inst     (inst      ),
@@ -102,7 +127,7 @@ logic [ 3:0] mem_we_mem;
 logic [31:0] mem_din_mem; 
 
 always_ff @(posedge clk) begin
-    if (rst) begin
+    if (rst || load_use_stall) begin
         alu_dout_mem <= 32'h0;
         funct3_mem <= 3'b0; 
         wb_sel_mem <= `WB_ALU;

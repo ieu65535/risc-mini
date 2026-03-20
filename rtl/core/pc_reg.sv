@@ -6,6 +6,7 @@ module pc_reg(
     input  logic [31:0] alu_dout,
     input  logic        alu_cond,
     input  logic [ 1:0] pc_sel,
+    input  logic        stall,
 
     output logic [31:0] inst_addr,
     output logic [31:0] pc
@@ -31,6 +32,8 @@ assign inst_addr = next_pc;
 always_ff @(posedge clk) begin
     if (rst) begin
         pc <= -4;
+    end else if (stall) begin
+        pc <= pc; // Hold the current PC during a stall
     end else begin
         pc <= next_pc;
     end
