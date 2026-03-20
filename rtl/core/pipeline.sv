@@ -47,24 +47,8 @@ reg_file u_reg_file(
 
 logic [31:0] rs1;
 logic [31:0] rs2;
-always_comb begin
-    if (rs1_addr == 0) rs1 = 0;
-    else begin
-        if (rs1_addr == rd_addr)
-            rs1 = rd_data;
-        else
-            rs1 = rs1_data;
-    end
-end
-always_comb begin
-    if (rs2_addr == 0) rs2 = 0;
-    else begin
-        if (rs2_addr == rd_addr)
-            rs2 = rd_data;
-        else
-            rs2 = rs2_data;
-    end
-end
+assign rs1 = rs1_data;
+assign rs2 = rs2_data;
 
 logic inst_valid;
 logic [1:0] op1_sel;
@@ -107,35 +91,68 @@ ex u_ex(
     .mem_mask (mem_mask )
 );
 
-assign mem_addr = alu_dout;
-
-logic [31:0] alu_dout_wb;
-logic [ 2:0] funct3_wb;
-logic [ 1:0] wb_sel_wb;
-logic [31:0] pc_wb;
+logic [31:0] alu_dout_mem;
+logic [ 2:0] funct3_mem;
+logic [ 1:0] wb_sel_mem;
+logic [31:0] pc_mem;
+logic [ 4:0] rd_addr_mem;
+logic [ 3:0] mem_we_mem; 
+logic [31:0] mem_din_mem; 
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        alu_dout_wb <= 32'h0;
-        funct3_wb <= 3'b0; 
-        wb_sel_wb <= `WB_ALU;
-        pc_wb <= 32'h0;
-        rd_addr <= 5'b0;
+        alu_dout_mem <= 32'h0;
+        funct3_mem <= 3'b0; 
+        wb_sel_mem <= `WB_ALU;
+        pc_mem <= 32'h0;
+        rd_addr_mem <= 5'b0;
+        mem_we_mem <= 4'b0;
+        mem_din_mem <= 32'h0;
     end else begin
-        alu_dout_wb <= alu_dout;
-        funct3_wb <= inst[14:12];
-        wb_sel_wb <= wb_sel;
-        pc_wb <= pc;
-        rd_addr <= rd_en? inst[11:7] : 5'b0;
+        alu_dout_mem <= alu_dout;
+        funct3_mem <= inst[14:12];
+        wb_sel_mem <= wb_sel;
+        pc_mem <= pc;
+        rd_addr_mem <= rd_en? inst[11:7] : 5'b0;
+        mem_we_mem <= mem_we;
+        mem_din_mem <= mem_din;
     end
 end
+
+logic [31:0] mem_dout_wb;
+logic [31:0] alu_dout_wb;
+logic [ 1:0] wb_sel_wb;
+logic [31:0] pc_wb;
+logic [ 2:0] funct3_wb;
+
+always_ff @(posedge clk) begin
+    if (rst) begin
+        mem_dout_wb <= 32'h0;
+        alu_dout_wb <= 32'h0;
+        wb_sel_wb <= `WB_ALU;
+        rd_addr <= 5'b0;
+        pc_wb <= 32'h0;
+        funct3_wb <= 3'b0;
+    end else begin
+        mem_dout_wb <= mem_dout;
+        alu_dout_wb <= alu_dout_mem;
+        wb_sel_wb <= wb_sel_mem;
+        rd_addr <= rd_addr_mem;
+        pc_wb <= pc_mem;
+        funct3_wb <= funct3_mem;
+    end
+end
+
+assign mem_addr = alu_dout_mem;
+assign mem_din  = mem_din_mem;
+assign mem_we   = mem_we_mem;
 
 wb u_wb(
     .funct3   (funct3_wb   ),
     .wb_sel   (wb_sel_wb   ),
     .alu_dout (alu_dout_wb ),
     .pc       (pc_wb       ),
-    .mem_dout (mem_dout ),
+    .mem_dout (mem_dout_wb ),
     .dout     (rd_data     )
 );
 
