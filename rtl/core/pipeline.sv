@@ -73,6 +73,13 @@ ctrl u_ctrl(
 );
 
 logic load_use_stall;
+logic [31:0] alu_dout_mem;
+logic [ 2:0] funct3_mem;
+logic [ 1:0] wb_sel_mem;
+logic [31:0] pc_mem;
+logic [ 4:0] rd_addr_mem;
+logic [ 3:0] mem_we_mem; 
+logic [31:0] mem_din_mem; 
 
 assign load_use_stall = (wb_sel_mem == `WB_MEM) && (rd_addr_mem != 5'b0) && ((rs1_addr == rd_addr_mem) || (rs2_addr == rd_addr_mem));
 
@@ -118,14 +125,6 @@ ex u_ex(
     .mem_mask (mem_mask  )
 );
 
-logic [31:0] alu_dout_mem;
-logic [ 2:0] funct3_mem;
-logic [ 1:0] wb_sel_mem;
-logic [31:0] pc_mem;
-logic [ 4:0] rd_addr_mem;
-logic [ 3:0] mem_we_mem; 
-logic [31:0] mem_din_mem; 
-
 always_ff @(posedge clk) begin
     if (rst || load_use_stall) begin
         alu_dout_mem <= 32'h0;
@@ -146,7 +145,6 @@ always_ff @(posedge clk) begin
     end
 end
 
-logic [31:0] mem_dout_wb;
 logic [31:0] alu_dout_wb;
 logic [ 1:0] wb_sel_wb;
 logic [31:0] pc_wb;
@@ -154,14 +152,12 @@ logic [ 2:0] funct3_wb;
 
 always_ff @(posedge clk) begin
     if (rst) begin
-        mem_dout_wb <= 32'h0;
         alu_dout_wb <= 32'h0;
         wb_sel_wb <= `WB_ALU;
         rd_addr <= 5'b0;
         pc_wb <= 32'h0;
         funct3_wb <= 3'b0;
     end else begin
-        mem_dout_wb <= mem_dout;
         alu_dout_wb <= alu_dout_mem;
         wb_sel_wb <= wb_sel_mem;
         rd_addr <= rd_addr_mem;
@@ -179,7 +175,7 @@ wb u_wb(
     .wb_sel   (wb_sel_wb   ),
     .alu_dout (alu_dout_wb ),
     .pc       (pc_wb       ),
-    .mem_dout (mem_dout_wb ),
+    .mem_dout (mem_dout    ),
     .dout     (rd_data     )
 );
 
