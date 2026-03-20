@@ -27,7 +27,7 @@ always_comb begin
     endcase
 end
 
-assign inst_addr = next_pc;
+assign inst_addr = stall ? pc : next_pc;
 
 always_ff @(posedge clk) begin
     if (rst) begin

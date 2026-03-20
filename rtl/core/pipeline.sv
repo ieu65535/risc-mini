@@ -145,6 +145,10 @@ always_ff @(posedge clk) begin
     end
 end
 
+assign mem_addr = alu_dout_mem;
+assign mem_din  = mem_din_mem;
+assign mem_we   = mem_we_mem;
+
 logic [31:0] alu_dout_wb;
 logic [ 1:0] wb_sel_wb;
 logic [31:0] pc_wb;
@@ -165,10 +169,6 @@ always_ff @(posedge clk) begin
         funct3_wb <= funct3_mem;
     end
 end
-
-assign mem_addr = alu_dout_mem;
-assign mem_din  = mem_din_mem;
-assign mem_we   = mem_we_mem;
 
 wb u_wb(
     .funct3   (funct3_wb   ),
