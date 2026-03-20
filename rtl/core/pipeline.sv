@@ -59,6 +59,8 @@ logic       is_sra;
 logic [3:0] mem_mask;
 logic       rd_en;
 logic [1:0] wb_sel;
+logic [31:0] mem_din_ex;
+logic [ 3:0] mem_we_ex;
 
 ctrl u_ctrl(
     .inst       (inst       ),
@@ -75,20 +77,20 @@ ctrl u_ctrl(
 );
 
 ex u_ex(
-    .pc       (pc       ),
-    .inst     (inst     ),
-    .alu_dout (alu_dout ),
-    .alu_cond (alu_cond ),
+    .pc       (pc        ),
+    .inst     (inst      ),
+    .alu_dout (alu_dout  ),
+    .alu_cond (alu_cond  ),
     .rs1_data (rs1 ),
     .rs2_data (rs2 ),
-    .mem_din  (mem_din  ),
-    .mem_we   (mem_we   ),
-    .op1_sel  (op1_sel  ),
-    .op2_sel  (op2_sel  ),
-    .alu_ctrl (alu_ctrl ),
-    .is_sub   (is_sub   ),
-    .is_sra   (is_sra   ),
-    .mem_mask (mem_mask )
+    .mem_din  (mem_din_ex),
+    .mem_we   (mem_we_ex ),
+    .op1_sel  (op1_sel   ),
+    .op2_sel  (op2_sel   ),
+    .alu_ctrl (alu_ctrl  ),
+    .is_sub   (is_sub    ),
+    .is_sra   (is_sra    ),
+    .mem_mask (mem_mask  )
 );
 
 logic [31:0] alu_dout_mem;
@@ -114,8 +116,8 @@ always_ff @(posedge clk) begin
         wb_sel_mem <= wb_sel;
         pc_mem <= pc;
         rd_addr_mem <= rd_en? inst[11:7] : 5'b0;
-        mem_we_mem <= mem_we;
-        mem_din_mem <= mem_din;
+        mem_we_mem <= mem_we_ex;
+        mem_din_mem <= mem_din_ex;
     end
 end
 
