@@ -2,6 +2,7 @@
 module pc_reg(
     input  logic        clk,
     input  logic        rst,
+    input  logic        stall,
     input  logic [31:0] inst,
     input  logic [31:0] alu_dout,
     input  logic        alu_cond,
@@ -18,12 +19,17 @@ wire [31:0] pc_jr = {alu_dout[31:1], 1'b0};
 logic [31:0] next_pc;
 
 always_comb begin
-    case (pc_sel)
-        `PC_N: next_pc = pc + 4;
-        `PC_J: next_pc = pc + imm_J;
-        `PC_B: next_pc = alu_cond? pc + imm_B : pc + 4;
-        `PC_JR: next_pc = pc_jr;
-    endcase
+    if (stall) begin
+        next_pc = pc;
+    end
+    else begin
+        case (pc_sel)
+            `PC_N: next_pc = pc + 4;
+            `PC_J: next_pc = pc + imm_J;
+            `PC_B: next_pc = alu_cond? pc + imm_B : pc + 4;
+            `PC_JR: next_pc = pc_jr;
+        endcase
+    end
 end
 
 assign inst_addr = next_pc;

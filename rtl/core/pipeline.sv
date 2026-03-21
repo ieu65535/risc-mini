@@ -12,6 +12,7 @@ module pipeline(
     output logic [ 3:0] mem_we
 );
 
+logic        stall;
 logic [31:0] pc;
 logic [31:0] alu_dout;
 logic        alu_cond;
@@ -20,6 +21,7 @@ logic [ 1:0] pc_sel;
 pc_reg u_pc_reg(
     .clk       (clk       ),
     .rst       (rst       ),
+    .stall     (stall     ),
     .inst      (inst      ),
     .alu_dout  (alu_dout  ),
     .alu_cond  (alu_cond  ),
@@ -49,21 +51,11 @@ logic [31:0] rs1;
 logic [31:0] rs2;
 always_comb begin
     if (rs1_addr == 0) rs1 = 0;
-    else begin
-        if (rs1_addr == rd_addr)
-            rs1 = rd_data;
-        else
-            rs1 = rs1_data;
-    end
+    else rs1 = rs1_data;
 end
 always_comb begin
     if (rs2_addr == 0) rs2 = 0;
-    else begin
-        if (rs2_addr == rd_addr)
-            rs2 = rd_data;
-        else
-            rs2 = rs2_data;
-    end
+    else rs2 = rs2_data;
 end
 
 logic inst_valid;
@@ -114,8 +106,11 @@ logic [ 2:0] funct3_wb;
 logic [ 1:0] wb_sel_wb;
 logic [31:0] pc_wb;
 
+assign stall = (rd_addr != 0) & ((rd_addr == rs1_addr) | (rd_addr == rs2_addr));
+wire rst_stall = rst | stall;
+
 always_ff @(posedge clk) begin
-    if (rst) begin
+    if (rst_stall) begin
         alu_dout_wb <= 32'h0;
         funct3_wb <= 3'b0; 
         wb_sel_wb <= `WB_ALU;
