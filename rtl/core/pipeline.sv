@@ -89,8 +89,8 @@ logic [31:0] rs2;
 always_comb begin
     rs1 = rs1_data; 
     if (rs1_addr != 5'b0) begin
-        if (rs1_addr == rd_addr_mem) begin
-            rs1 = alu_dout_mem;
+        if ((rs1_addr == rd_addr_mem) && (wb_sel_mem != `WB_MEM)) begin
+        rs1 = alu_dout_mem;
         end else if (rs1_addr == rd_addr) begin 
             rs1 = rd_data;
         end
@@ -100,7 +100,7 @@ end
 always_comb begin
     rs2 = rs2_data;
     if (rs2_addr != 5'b0) begin
-        if (rs2_addr == rd_addr_mem) begin
+        if ((rs2_addr == rd_addr_mem) && (wb_sel_mem != `WB_MEM)) begin
             rs2 = alu_dout_mem;
         end else if (rs2_addr == rd_addr) begin
             rs2 = rd_data;
