@@ -12,11 +12,19 @@ module ctrl (
     output logic [3:0] mem_mask,
     output logic       rd_en,
     output logic [1:0] wb_sel,
-    output logic [1:0] pc_sel
+    output logic [1:0] pc_sel,
+
+    // CSR相关输出
+    output logic        csr_en,          // CSR使能
+    output logic [ 1:0] csr_op,          // CSR操作
+    output logic        mret,            // MRET指令
+    output logic        ecall,           // ECALL指令
+    output logic        ebreak           // EBREAK指令
 );
 wire [6:0] opcode = inst[6:0];
 wire [2:0] funct3 = inst[14:12];
 wire     funct7_5 = inst[30];
+
 
 always_comb begin
     inst_valid = 1;
@@ -29,6 +37,14 @@ always_comb begin
     rd_en = 0;
     wb_sel = `WB_ALU;
     pc_sel = `PC_N;
+
+    //for csr
+    csr_en = 1'b0;
+    csr_op = 2'b00;
+    mret = 1'b0;
+    ecall = 1'b0;
+    ebreak = 1'b0;
+
     case (opcode)
         `TYPE_R: begin
             alu_ctrl = funct3;
@@ -78,6 +94,26 @@ always_comb begin
             op1_sel = `OP1_IMU;
             op2_sel = `OP2_PC;
             rd_en = 1;
+        end
+        
+        `TYPE_CSR: begin 
+            //for debug
+            csr_en = 1'b1;
+            if (inst[14:12] != 3'b0) begin
+                case (inst[13:12])
+                    2'b01: csr_op = 2'b01; // csrrs
+                    2'b10: csr_op = 2'b10; // csrrc
+                    2'b11: csr_op = 2'b11; // csr立即数
+                    default: csr_op = 2'b00; // csrrw
+                endcase
+            end
+            else if (inst[31:20] == 12'h302) begin
+                mret = 1'b1;  // MRET
+            end else if (inst == 32'h00000073) begin
+                ecall = 1'b1;  // ECALL
+            end else if (inst == 32'h00100073) begin
+                ebreak = 1'b1; // EBREAK
+            end
         end
         default: inst_valid = 0;
     endcase

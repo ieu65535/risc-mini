@@ -130,6 +130,7 @@ wire rst_stall = rst | stall;
 logic [31:0] funct3_mem;
 logic [31:0] pc_mem;
 
+//E to M register
 always_ff @(posedge clk) begin
     if (rst_stall) begin
         alu_dout_mem <= 32'h0;
@@ -152,6 +153,7 @@ logic [ 1:0] wb_sel_wb;
 logic [31:0] pc_wb;
 logic [31:0] mem_dout_wb;
 
+//M to W register
 always_ff @(posedge clk) begin
     if (rst) begin
         alu_dout_wb <= 32'h0;

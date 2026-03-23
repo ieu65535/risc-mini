@@ -5,6 +5,7 @@
 `define TYPE_B 7'b1100011
 `define TYPE_L 7'b0000011
 `define TYPE_S 7'b0100011
+`define TYPE_CSR 7'b1110011
 
 `define JAL    7'b1101111
 `define JALR   7'b1100111
@@ -60,6 +61,7 @@
 `define CSR_CYCLE   12'hc00
 `define CSR_CYCLEH  12'hc80
 `define CSR_MTVEC   12'h305
+`define CSR_MIP     12'h344
 `define CSR_MCAUSE  12'h342
 `define CSR_MEPC    12'h341
 `define CSR_MIE     12'h304
