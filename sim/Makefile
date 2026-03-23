@@ -1,17 +1,27 @@
 
 ifndef ICARUS
-    ICARUS = iverilog -Wall
+    ICARUS = iverilog -g2005-sv
     VVP = vvp
 endif
 
-RTLS =  tb_soc.v                        \
-        ../rtl/soc.v                    \
-        ../rtl/core/cpu.v               \
-        ../rtl/peripherals/bus.v        \
-        ../rtl/peripherals/io.v         \
-        ../rtl/peripherals/reset_sync.v \
-        ../rtl/peripherals/uart_rx.v    \
-        ../rtl/peripherals/uart_tx.v    \
+RTLS =  tb_soc.sv                        \
+        ../rtl/soc.sv                    \
+        ../rtl/core/cpu.sv               \
+        ../rtl/core/alu.sv               \
+        ../rtl/core/ctrl.sv              \
+        ../rtl/core/reg_file.sv          \
+        ../rtl/core/pc_reg.sv            \
+        ../rtl/core/data_path.sv         \
+        ../rtl/core/pipeline.sv          \
+        ../rtl/core/ex.sv                \
+        ../rtl/core/wb.sv                \
+        ../rtl/peripherals/bus.sv        \
+        ../rtl/peripherals/flash.sv      \
+        ../rtl/peripherals/ram.sv        \
+        ../rtl/peripherals/io.sv         \
+        ../rtl/peripherals/reset_sync.sv \
+        ../rtl/peripherals/uart_rx.sv    \
+        ../rtl/peripherals/uart_tx.sv    \
 
 INCS = ../rtl/config.vh
 XSIM = risc-mini.vvp
