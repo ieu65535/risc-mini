@@ -67,13 +67,13 @@ logic [31:0] recovery_addr;
 always_comb begin
     mispredict = 1'b0;
     recovery_addr = 32'b0;
-    
-    if (pc_sel_de == `PC_B && !alu_cond) begin
+
+    if (pc_sel_mem == `PC_B && !alu_cond_mem) begin
         mispredict = 1'b1;
-        recovery_addr = pc_de + 4;
-    end else if (pc_sel_de == `PC_JR) begin
+        recovery_addr = pc_mem + 4;
+    end else if (pc_sel_mem == `PC_JR) begin
         mispredict = 1'b1;
-        recovery_addr = alu_dout & 32'hFFFFFFFE;
+        recovery_addr = alu_dout_mem & 32'hFFFFFFFE; 
     end
 end
 
@@ -117,6 +117,8 @@ assign stall = (wb_sel_de == `WB_MEM) && rd_en_de && (rd_addr_de != 5'b0) && ((r
 logic [31:0] alu_dout_mem;
 logic [ 1:0] wb_sel_mem;
 logic [ 4:0] rd_addr_mem;
+logic [ 1:0] pc_sel_mem;
+logic        alu_cond_mem;
 
 logic        is_sra_de;
 logic        is_sub_de;
@@ -224,18 +226,22 @@ logic [ 3:0] funct3_mem;
 logic [31:0] pc_mem;
 
 always_ff @(posedge clk) begin
-    if (rst) begin
+    if (rst | mispredict) begin
         alu_dout_mem <= 32'h0;
         funct3_mem <= 3'b0; 
         wb_sel_mem <= `WB_ALU;
         pc_mem <= 32'h0;
         rd_addr_mem <= 5'b0;
+        pc_sel_mem   <= `PC_N; 
+        alu_cond_mem <= 1'b0;
     end else begin
         alu_dout_mem <= alu_dout;
         funct3_mem   <= inst_de[14:12]; 
         wb_sel_mem   <= wb_sel_de;
         pc_mem       <= pc_de;
         rd_addr_mem  <= rd_en_de ? inst_de[11:7] : 5'b0;
+        pc_sel_mem   <= pc_sel_de;
+        alu_cond_mem <= alu_cond;
     end
 end
 
