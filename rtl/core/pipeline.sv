@@ -20,16 +20,36 @@ logic [ 1:0] pc_sel;
 logic [1:0] pc_sel_de;
 logic [31:0] id_inst;
 
+wire [31:0] imm_B_id = $signed({id_inst[31], id_inst[7], id_inst[30:25], id_inst[11:8], 1'b0});
+wire [31:0] imm_J_id = $signed({id_inst[31], id_inst[19:12], id_inst[20], id_inst[30:21], 1'b0});
+
+logic predict_jump;
+logic [31:0] predict_addr;
+
+assign predict_jump = (pc_sel == `PC_B) || (pc_sel == `PC_J);
+
+always_comb begin
+    if (pc_sel == `PC_B) begin
+        predict_addr = pc + imm_B_id;
+    end else if (pc_sel == `PC_J) begin
+        predict_addr = pc + imm_J_id;
+    end else begin
+        predict_addr = 32'b0;
+    end
+end
+
 pc_reg u_pc_reg(
-    .clk        (clk       ),
-    .rst        (rst       ),
-    .stall      (stall     ),
-    .do_jump    (do_jump   ), 
-    .jump_addr  (jump_addr ), 
-    .mem_inst   (inst      ), 
-    .id_inst    (id_inst   ), 
-    .inst_addr  (inst_addr ),
-    .pc         (pc        )
+    .clk            (clk          ),
+    .rst            (rst          ),
+    .stall          (stall        ),
+    .predict_jump   (predict_jump ), 
+    .predict_addr   (predict_addr ), 
+    .mispredict     (mispredict   ), 
+    .recovery_addr  (recovery_addr), 
+    .mem_inst       (inst         ), 
+    .id_inst        (id_inst      ), 
+    .inst_addr      (inst_addr    ),
+    .pc             (pc           )
 );
 
 wire [ 4:0] rs1_addr = id_inst[19:15];
@@ -41,33 +61,30 @@ logic [31:0] rd_data;
 logic [31:0] jump_addr;
 logic        do_jump;
 
-wire [31:0] imm_J_ex = $signed({inst_de[31], inst_de[19:12], inst_de[20], inst_de[30:21], 1'b0});
-wire [31:0] imm_B_ex = $signed({inst_de[31], inst_de[7], inst_de[30:25], inst_de[11:8], 1'b0});
+logic mispredict;
+logic [31:0] recovery_addr;
 
 always_comb begin
-    do_jump = 1'b0;
-    jump_addr = 32'b0;
+    mispredict = 1'b0;
+    recovery_addr = 32'b0;
     
-    if (pc_sel_de == `PC_J) begin
-        do_jump = 1'b1;
-        jump_addr = pc_de + imm_J_ex;
+    if (pc_sel_de == `PC_B && !alu_cond) begin
+        mispredict = 1'b1;
+        recovery_addr = pc_de + 4;
     end else if (pc_sel_de == `PC_JR) begin
-        do_jump = 1'b1;
-        jump_addr = alu_dout & 32'hFFFFFFFE;
-    end else if (pc_sel_de == `PC_B && alu_cond) begin
-        do_jump = 1'b1;
-        jump_addr = pc_de + imm_B_ex;
+        mispredict = 1'b1;
+        recovery_addr = alu_dout & 32'hFFFFFFFE;
     end
 end
 
 reg_file u_reg_file(
-    .clk      (clk      ),
+    .clk      (clk         ),
     .rd_addr  (rd_addr_wb  ),
-    .rd_data  (rd_data  ),
-    .rs1_addr (rs1_addr ),
-    .rs2_addr (rs2_addr ),
-    .rs1_data (rs1_data ),
-    .rs2_data (rs2_data )
+    .rd_data  (rd_data     ),
+    .rs1_addr (rs1_addr    ),
+    .rs2_addr (rs2_addr    ),
+    .rs1_data (rs1_data    ),
+    .rs2_data (rs2_data    )
 );
 
 logic inst_valid;
@@ -118,7 +135,7 @@ wire is_branch_ex = (pc_sel_de == `PC_B);
 wire is_jump_ex   = (pc_sel_de == `PC_J) || (pc_sel_de == `PC_JR);
 
 always_ff @(posedge clk) begin
-    if(rst | stall | do_jump) begin
+    if(rst | stall | mispredict) begin
         is_sra_de   <= 1'b0;
         is_sub_de   <= 1'b0;
         mem_mask_de <= 4'b0;

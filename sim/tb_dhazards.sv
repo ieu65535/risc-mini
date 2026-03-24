@@ -52,7 +52,7 @@ module tb_hazard();
     end
 
     // -----------------------------------------------------------
-    // 4. 终极数据冒险序列 Task (支持并发跳转监听与内存校验)
+    // 4. 终极数据冒险序列 Task (升级：支持并发跳转监听与内存校验)
     // -----------------------------------------------------------
     task test_hazard_sequence(
         input string test_name,
@@ -96,14 +96,30 @@ module tb_hazard();
 
         rst = 0;
 
-        // 并发执行：一边跑流水线，一边监听有没有跳跃产生
+        // 【核心修改点】并发执行：一边跑流水线，一边监听分支预测与纠正
         fork
             begin
                 while(1) begin
                     @(posedge clk);
-                    if (dut.do_jump) begin
+                    
+                    // 1. ID 阶段预测跳转
+                    if (dut.predict_jump) begin
                         jump_occurred = 1;
-                        actual_jump_target = dut.jump_addr;
+                        actual_jump_target = dut.predict_addr;
+                    end
+                    
+                    // 2. EX 阶段纠正预测
+                    if (dut.mispredict) begin
+                        // 动态判断：如果纠正的目标地址正好是这根分支指令的下一条 (pc_de + 4)
+                        // 说明 ALU 算出来的结果是“不满足条件”，退回了顺序执行，也就是实际上“没跳”
+                        if (dut.recovery_addr == dut.pc_de + 4) begin
+                            jump_occurred = 0;
+                            actual_jump_target = 32'h0;
+                        end else begin
+                            // 如果是 JALR 等需要在 EX 阶段才算出真实目标的指令
+                            jump_occurred = 1;
+                            actual_jump_target = dut.recovery_addr;
+                        end
                     end
                 end
             end
@@ -133,7 +149,7 @@ module tb_hazard();
         // 3. 校验分支跳转
         if (check_jump_en) begin
             if (!jump_occurred) begin
-                $display("\n  -> [FAIL] 期望发生跳转，但未检测到 do_jump");
+                $display("\n  -> [FAIL] 期望发生跳转，但最终判定为不跳转");
             end
             if (actual_jump_target !== expected_jump_pc) begin
                 $display("\n  -> [FAIL] 期望跳转PC = 0x%08h, 实际 = 0x%08h", expected_jump_pc, actual_jump_target);
@@ -179,11 +195,7 @@ module tb_hazard();
 
         // --- 进阶变态测试 (Edge Cases) ---
         
-        // 进阶 1: 双重数据冒险 (连续写后读，考量优先级)
-        // inst0: ADDI x1, x0, 5 
-        // inst1: ADDI x1, x0, 10
-        // inst2: ADD  x2, x1, x0
-        // 如果优先级没写好，x2 可能会错拿到 5
+        // 进阶 1: 双重数据冒险
         test_hazard_sequence("进阶 1: 双重数据冒险 (优先级陷阱)", 
             32'h00500093, 32'h00a00093, 32'h00008133, 32'h00000013, 32'h00000013, 3,
             0, 0, 0,
@@ -192,20 +204,14 @@ module tb_hazard();
         );
 
         // 进阶 2: 零寄存器 (x0) 前推陷阱
-        // inst0: ADDI x0, x0, 100 
-        // inst1: ADD  x3, x0, x0
-        // 考量你的前推判断里有没有特判 rs1_addr != 0
         test_hazard_sequence("进阶 2: 零寄存器 (x0) 前推防御", 
             32'h06400013, 32'h000001b3, 32'h00000013, 32'h00000013, 32'h00000013, 2,
             0, 0, 0,
-            1, 3, 32'd0, // x3 必须是 0，不受上面的 100 污染
+            1, 3, 32'd0, // x3 必须是 0
             0, 0, 0, 0, 0
         );
 
         // 进阶 3: 对 Store 数据进行前推
-        // inst0: ADDI x4, x0, 88 
-        // inst1: SW   x4, 8(x0)
-        // 考量 rs2 的前推值能不能正确送到内存的数据输入端
         test_hazard_sequence("进阶 3: Store 指令的数据前推", 
             32'h05800213, 32'h00402423, 32'h00000013, 32'h00000013, 32'h00000013, 2,
             0, 0, 0,
@@ -214,13 +220,13 @@ module tb_hazard();
             0, 0
         );
 
-        // 进阶 4: 对分支判断进行前推
+        // 进阶 4: 对分支判断进行前推 (测试你的前推和预测结合得对不对)
         // inst0: ADDI x5, x0, 15
         // inst1: ADDI x6, x0, 15
         // inst2: BEQ  x5, x6, 16 
-        // BEQ 在执行时需要同时拿前两条指令算出的 15 进行判断。
+        // 分支所在的 PC 是 8。条件相等，预测正确，最终跳转到 8 + 16 = 24！
         test_hazard_sequence("进阶 4: 分支 (Branch) 指令的前推", 
-            32'h00f00293, 32'h00f00313, 32'h00628863, 32'h00000013, 32'h00000013, 3, // <--- 这里改成了 0x00628863
+            32'h00f00293, 32'h00f00313, 32'h00628863, 32'h00000013, 32'h00000013, 3,
             0, 0, 0,
             0, 0, 0,
             0, 0, 0,
@@ -234,9 +240,9 @@ module tb_hazard();
     end
 
     // 生成波形
-    initial begin
-        $dumpfile("tb_hazard.vcd");
-        $dumpvars(0, tb_hazard);
-    end
+    // initial begin
+    //     $dumpfile("tb_hazard.vcd");
+    //     $dumpvars(0, tb_hazard);
+    // end
 
 endmodule
