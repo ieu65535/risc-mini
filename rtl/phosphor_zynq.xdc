@@ -1,7 +1,7 @@
 #开发板约束文件
 
 #时序约束
-create_clock -period 20.000 -name clk [get_ports clk] 
+create_clock -period 10.000 -name clk [get_ports clk] 
 
 #IO约束文件
 

@@ -16,7 +16,7 @@ module ctrl (
 
     // CSR相关输出
     output logic        csr_en,          // CSR使能
-    output logic [ 1:0] csr_op,          // CSR操作
+    output logic [ 2:0] csr_op,          // CSR操作
     output logic        mret,            // MRET指令
     output logic        ecall,           // ECALL指令
     output logic        ebreak           // EBREAK指令
@@ -40,7 +40,7 @@ always_comb begin
 
     //for csr
     csr_en = 1'b0;
-    csr_op = 2'b00;
+    csr_op = 3'b000;
     mret = 1'b0;
     ecall = 1'b0;
     ebreak = 1'b0;
@@ -100,12 +100,9 @@ always_comb begin
             //for debug
             csr_en = 1'b1;
             if (inst[14:12] != 3'b0) begin
-                case (inst[13:12])
-                    2'b01: csr_op = 2'b01; // csrrs
-                    2'b10: csr_op = 2'b10; // csrrc
-                    2'b11: csr_op = 2'b11; // csr立即数
-                    default: csr_op = 2'b00; // csrrw
-                endcase
+                rd_en = 1'b1;
+                wb_sel = `WB_CSR;
+                csr_op = inst[14:12];
             end
             else if (inst[31:20] == 12'h302) begin
                 mret = 1'b1;  // MRET

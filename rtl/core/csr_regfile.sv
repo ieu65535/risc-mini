@@ -3,11 +3,13 @@
 module csr_regfile (
     input  logic        clk,
     input  logic        rst,
+
+    output logic [31:0] mepc,     
     
     // CSR读写接口
     input  logic [11:0] csr_addr,      
     input  logic [31:0] csr_wdata,     // datain
-    input  logic [ 1:0] csr_op,        // 00=csrrw, 01=csrrs, 10=csrrc, 11=csr立即数
+    input  logic [ 2:0] csr_op,        
     output logic [31:0] csr_rdata,     // dataout
     output logic        csr_illegal,   
     
@@ -25,7 +27,7 @@ module csr_regfile (
     logic [31:0] mie;      // interupt enable
     logic [31:0] mip;      // interrupt pending?
     logic [31:0] mtvec;    // instruction handler
-    logic [31:0] mepc;     // PC duiring exception
+    //logic [31:0] mepc;     // PC duiring exception
     logic [31:0] mcause;   // recording of exception cause
     
     // the status register's MIE and MPIE bit
@@ -60,7 +62,7 @@ module csr_regfile (
             mcause <= 32'h0;
         end else begin
             // 正常CSR写
-            if (csr_op != 2'b00 && !csr_illegal) begin
+            if (csr_op != 3'b000 && !csr_illegal) begin
                 case (csr_addr)
                     `CSR_MSTATUS:   mstatus <= csr_wdata;
                     `CSR_MIE:       mie <= csr_wdata;
@@ -104,6 +106,9 @@ module csr_regfile (
     
     // 异常/中断向量地址生成
     assign interrupt_vector = mtvec; // 简单直接模式
+
+    
+    assign mepc = this.mepc;
     
 endmodule
 

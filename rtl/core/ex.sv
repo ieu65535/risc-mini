@@ -20,7 +20,19 @@ module ex(
     input  logic [2:0] alu_ctrl,
     input  logic       is_sub,
     input  logic       is_sra,
-    input  logic [3:0] mem_mask
+    input  logic [3:0] mem_mask,
+
+    // CSR
+    input  logic        csr_en,
+    input  logic [ 2:0] csr_op,
+    input  logic [31:0] csr_rdata,
+    output logic [31:0] csr_wdata,
+    output logic [11:0] csr_addr,
+    output logic [31:0] rd_data, // for csr read data forwarding
+    
+    // exception
+    output logic        exception,
+    output logic [ 3:0] exception_code
 );
 
 wire [31:0] imm_I = $signed(inst[31:20]);
@@ -29,6 +41,39 @@ wire [31:0] imm_U = $signed({inst[31:12], 12'd0});
 
 logic [31:0] alu_dina;
 logic [31:0] alu_dinb;
+
+logic [31:0] csr_operand;
+assign csr_operand = csr_op[2]? {27'b0, inst[19:15]} : rs1_data;
+
+// CSR operation
+always_comb begin
+    if (csr_en) begin
+        case (csr_op[1:0])
+            2'b01: csr_wdata = csr_operand;
+            2'b10: csr_wdata = csr_rdata | csr_operand;
+            2'b11: csr_wdata = csr_rdata & ~csr_operand;
+            default: csr_wdata = csr_rdata;
+        endcase
+    end else begin
+        csr_wdata = 32'h0;
+    end
+end
+assign rd_data = csr_en ? csr_rdata : 32'h0;
+assign csr_addr = inst[31:20];
+
+// exception logic
+// always_comb begin
+//     exception = 1'b0;
+//     exception_code = 4'b0;
+//     if (csr_en && csr_illegal) begin
+//         exception = 1'b1;
+//         //wait for defined exception code
+//         //exception_code = `CAUSE_ILLEGAL_INSTR;
+//     end else if (!inst_valid) begin
+//         exception = 1'b1;
+//         //exception_code = `CAUSE_ILLEGAL_INSTR;
+//     end
+// end
 
 always_comb begin
     case (op1_sel)

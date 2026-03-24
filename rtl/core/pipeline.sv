@@ -25,6 +25,12 @@ wire [31:0] imm_J_id = $signed({id_inst[31], id_inst[19:12], id_inst[20], id_ins
 
 logic predict_jump;
 logic [31:0] predict_addr;
+logic mispredict;
+logic [31:0] recovery_addr;
+logic [ 1:0] pc_sel_mem;
+logic        alu_cond_mem;
+logic [31:0] pc_mem;
+logic [31:0] alu_dout_mem;
 
 assign predict_jump = (pc_sel == `PC_B) || (pc_sel == `PC_J);
 
@@ -61,9 +67,6 @@ logic [31:0] rd_data;
 logic [31:0] jump_addr;
 logic        do_jump;
 
-logic mispredict;
-logic [31:0] recovery_addr;
-
 always_comb begin
     mispredict = 1'b0;
     recovery_addr = 32'b0;
@@ -87,6 +90,31 @@ reg_file u_reg_file(
     .rs2_data (rs2_data    )
 );
 
+// output declaration of module csr_regfile
+wire [31:0] csr_rdata;
+wire csr_illegal;
+wire interrupt_taken;
+wire [31:0] interrupt_vector;
+wire [31:0] mepc;
+
+csr_regfile u_csr_regfile(
+    .clk              	(clk               ),
+    .rst              	(rst               ),
+    .mepc               (mepc       ),   
+    .csr_addr         	(csr_addr          ),
+    .csr_wdata        	(csr_wdata         ),
+    .csr_op           	(csr_op            ),
+    .csr_rdata        	(csr_rdata         ),
+    .csr_illegal      	(csr_illegal       ),
+    .mret             	(mret              ),
+    .exception        	(exception         ),
+    .exception_pc     	(exception_pc      ),
+    .exception_code   	(exception_code    ),
+    .interrupt_taken  	(interrupt_taken   ),
+    .interrupt_vector 	(interrupt_vector  )
+);
+
+
 logic inst_valid;
 logic [1:0] op1_sel;
 logic [1:0] op2_sel;
@@ -108,17 +136,24 @@ ctrl u_ctrl(
     .mem_mask   (mem_mask   ),
     .rd_en      (rd_en      ),
     .wb_sel     (wb_sel     ),
-    .pc_sel     (pc_sel     )
+    .pc_sel     (pc_sel     ),
+
+    .csr_en     (csr_en     ),
+    .csr_op     (csr_op     ),
+    .mret       (mret       ),  
+    .ecall      (ecall      ),
+    .ebreak     (ebreak     )   
 );
+
+logic [31:0] inst_de;
+logic [ 1:0] wb_sel_de;
+logic        rd_en_de;
 
 wire [4:0] rd_addr_de = inst_de[11:7];
 assign stall = (wb_sel_de == `WB_MEM) && rd_en_de && (rd_addr_de != 5'b0) && ((rs1_addr == rd_addr_de) || (rs2_addr == rd_addr_de));
 
-logic [31:0] alu_dout_mem;
 logic [ 1:0] wb_sel_mem;
 logic [ 4:0] rd_addr_mem;
-logic [ 1:0] pc_sel_mem;
-logic        alu_cond_mem;
 
 logic        is_sra_de;
 logic        is_sub_de;
@@ -126,16 +161,14 @@ logic [ 3:0] mem_mask_de;
 logic [ 2:0] alu_ctrl_de;
 logic [ 1:0] op1_sel_de;
 logic [ 1:0] op2_sel_de;
-logic [31:0] inst_de;
 logic [31:0] rs1_data_de;
 logic [31:0] rs2_data_de;
-logic        rd_en_de;
-logic [ 1:0] wb_sel_de;
 logic [31:0] pc_de;
 
 wire is_branch_ex = (pc_sel_de == `PC_B);
 wire is_jump_ex   = (pc_sel_de == `PC_J) || (pc_sel_de == `PC_JR);
 
+//D to E register
 always_ff @(posedge clk) begin
     if(rst | stall | mispredict) begin
         is_sra_de   <= 1'b0;
@@ -217,13 +250,22 @@ ex u_ex(
     .alu_ctrl (alu_ctrl_de ), 
     .is_sub   (is_sub_de   ), 
     .is_sra   (is_sra_de   ), 
-    .mem_mask (mem_mask_de )
+    .mem_mask (mem_mask_de ),
+
+    .csr_en   (csr_en      ),
+    .csr_op   (csr_op      ),    
+    .csr_rdata (csr_rdata  ),    
+    .csr_wdata (csr_wdata  ),
+    .csr_addr (csr_addr    ),
+    .rd_data  (rd_data     ),
+
+    .exception (exception   ),
+    .exception_code (exception_code)
 );
 
 assign mem_addr = alu_dout;
 
 logic [ 3:0] funct3_mem;
-logic [31:0] pc_mem;
 
 //E to M register
 always_ff @(posedge clk) begin
