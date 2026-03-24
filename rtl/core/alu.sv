@@ -46,6 +46,7 @@ always @(*) begin
 end
 
 always @(*) begin
+    cond = 1'b0;
     case (funct3)
         `BEQ: cond = eq;
         `BNE: cond = !eq;
