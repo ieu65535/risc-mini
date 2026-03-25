@@ -7,7 +7,8 @@ module io (
     output reg [31:0] dout,
 
     input rxd,
-    output txd
+    output txd,
+    output logic [7:0] led
 );
 
 // uart registers
@@ -22,7 +23,8 @@ localparam RXNE = 5;  // 接收非空标志位
 localparam TC   = 6;  // 发送完成标志位
 
 // gpio registers
-reg [31:0] PORTA;
+logic [31:0] PORTA;
+assign led = PORTA[7:0];
 
 // uart
 wire [7:0] RDR; // 串口接收数据
@@ -65,6 +67,7 @@ always @ (posedge clk) begin
                 8'h04: UDR <= din;
                 8'h08: UBRR <= din;
                 8'h0C: UCR1 <= din;
+                8'h20: PORTA <= din;
             endcase
         end
     end

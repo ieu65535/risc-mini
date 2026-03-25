@@ -13,7 +13,7 @@
 #define MMIO8(addr)  (*(volatile uint8_t  *)(IO_BASE+(addr)))
 
 #define IO_BASE_UART0 0x00
-#define IO_BASE_PORT0 0x04
+#define IO_BASE_PORT0 0x20
 
 // UART registers
 #define USR  MMIO32(IO_BASE_UART0+0x00)
@@ -27,5 +27,9 @@
 
 void uart_init(int baudrate);
 int uart_putc(char c, struct __file *stream);
+
+// IO
+
+#define PORT_OUT MMIO32(IO_BASE_PORT0+0x00)
 
 #endif // MINI_IO_H

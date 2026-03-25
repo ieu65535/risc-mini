@@ -31,7 +31,8 @@ module tb_soc;
     soc u_soc(
         .clk   (sys_clk   ),
         .rst_n (rst_n ),
-        .txd   (txd   )
+        .txd   (txd   ),
+        .led   (led   )
     );
 
 endmodule

@@ -4,7 +4,8 @@ module soc(
     input  logic rst_n,
 
     input  logic rxd,
-    output logic txd
+    output logic txd,
+    output logic [7:0] led
 );
 
 logic rst;
@@ -31,7 +32,8 @@ bus u_bus(
     .mem_we    (mem_we    ),
     .mem_dout  (mem_dout  ),
     .txd       (txd       ),
-    .rxd       (rxd       )
+    .rxd       (rxd       ),
+    .led       (led     )
 );
 
 pipeline u_cpu(

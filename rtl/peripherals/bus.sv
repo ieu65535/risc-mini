@@ -10,7 +10,8 @@ module bus(
     output reg [31:0] mem_dout,//数据输出
 
     input rxd,
-    output txd
+    output txd,
+    output logic [7:0] led
 );
 
 localparam WIDTH = 10;//地址索引位数
@@ -57,7 +58,8 @@ io u_io(
     .wr   (wr   ),
     .dout (io_dout ),
     .txd  (txd),
-    .rxd  (rxd)
+    .rxd  (rxd),
+    .led  (led)
 );
 
 // multiplexer
