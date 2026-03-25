@@ -1,13 +1,19 @@
 #include "mini_io.h"
 
+void sleep(int ms) {
+    volatile int i;
+    for(i = 0; i < ms * 5555; i++);
+    printf("Slept for %d cycles\n", i);
+}
+
 int main() {
     uart_init(115200);
     while(1){
         printf("Hello, World!\n");
         PORT_OUT = 0x01;
-        for(int i = 0; i < 10000000; i++);
+        sleep(500);
         PORT_OUT = 0x02;
-        for(int i = 0; i < 10000000; i++);
+        sleep(500);
     }
     return 0;
 }
