@@ -28,11 +28,15 @@ module ex(
     input  logic [31:0] csr_rdata,
     output logic [31:0] csr_wdata,
     output logic [11:0] csr_addr,
-    output logic [31:0] rd_data, // for csr read data forwarding
-    
-    // exception
+    output logic [31:0] csr_rd_data,  
+    input  logic        mret_de,
+    input  logic        ecall_de,
+    input  logic        ebreak_de,
+    input  logic        inst_valid,
+    input  logic        csr_illegal,
     output logic        exception,
-    output logic [ 3:0] exception_code
+    output logic [ 3:0] exception_code,
+    output logic [31:0] exception_pc
 );
 
 wire [31:0] imm_I = $signed(inst[31:20]);
@@ -58,22 +62,27 @@ always_comb begin
         csr_wdata = 32'h0;
     end
 end
-assign rd_data = csr_en ? csr_rdata : 32'h0;
+assign csr_rd_data = csr_en ? csr_rdata : 32'h0;
 assign csr_addr = inst[31:20];
 
-// exception logic
-// always_comb begin
-//     exception = 1'b0;
-//     exception_code = 4'b0;
-//     if (csr_en && csr_illegal) begin
-//         exception = 1'b1;
-//         //wait for defined exception code
-//         //exception_code = `CAUSE_ILLEGAL_INSTR;
-//     end else if (!inst_valid) begin
-//         exception = 1'b1;
-//         //exception_code = `CAUSE_ILLEGAL_INSTR;
-//     end
-// end
+always_comb begin
+    exception = 1'b0;
+    exception_code = 4'b0;
+    if (ecall_de) begin
+        exception = 1'b1;
+        //exception_code = `CAUSE_ECALL;
+    end else if (ebreak_de) begin
+        exception = 1'b1;
+        //exception_code = `CAUSE_EBREAK;
+    end else if (!inst_valid) begin
+        exception = 1'b1;
+        //exception_code = `CAUSE_ILLEGAL_INSTR;
+    end else if (csr_illegal) begin
+        exception = 1'b1;
+        //exception_code = `CAUSE_ILLEGAL_INSTR;
+    end
+    exception_pc = pc;
+end
 
 always_comb begin
     case (op1_sel)

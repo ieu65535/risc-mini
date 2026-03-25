@@ -4,7 +4,7 @@ module csr_regfile (
     input  logic        clk,
     input  logic        rst,
 
-    output logic [31:0] mepc,     
+    output logic [31:0] mepc_out,  //for PC update during MRET
     
     // CSR读写接口
     input  logic [11:0] csr_addr,      
@@ -27,7 +27,7 @@ module csr_regfile (
     logic [31:0] mie;      // interupt enable
     logic [31:0] mip;      // interrupt pending?
     logic [31:0] mtvec;    // instruction handler
-    //logic [31:0] mepc;     // PC duiring exception
+    logic [31:0] mepc;     // PC duiring exception
     logic [31:0] mcause;   // recording of exception cause
     
     // the status register's MIE and MPIE bit
@@ -108,7 +108,7 @@ module csr_regfile (
     assign interrupt_vector = mtvec; // 简单直接模式
 
     
-    assign mepc = this.mepc;
+    assign mepc_out = mepc;
     
 endmodule
 
