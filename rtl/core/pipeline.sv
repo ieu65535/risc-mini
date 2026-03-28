@@ -99,7 +99,7 @@ reg_file u_reg_file(
 );
 
 // output declaration of module csr_regfile
-wire [ 2:0] csr_addr;
+wire [11:0] csr_addr;
 wire [31:0] csr_wdata;
 wire [ 2:0] csr_op;
 wire csr_en;
@@ -107,8 +107,8 @@ wire mret;
 wire ecall;
 wire ebreak;
 wire exception;
-wire [ 3:0] exception_code;
-wire [31:0] exception_pc;
+wire [ 3:0] exception_code_de;
+wire [31:0] exception_pc_de;
 wire [31:0] csr_rdata;
 wire csr_illegal;
 wire interrupt_taken;
