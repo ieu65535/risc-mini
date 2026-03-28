@@ -14,6 +14,8 @@ module csr_regfile (
     output logic        csr_illegal,   
     
     // 中断控制接口
+    input  logic        ext_irq,  // 外部中断请求   
+
     input  logic        mret,               // MRET
     input  logic        exception,          
     input  logic [31:0] exception_pc,       //pc duiring exception
@@ -54,10 +56,10 @@ module csr_regfile (
     // CSR写操作
     always_ff @(posedge clk) begin
         if (rst) begin
-            mstatus <= 32'h0;
-            mie <= 32'h0;
+            mstatus <= 32'h0;          //***test
+            mie <= 32'h0;           //***test
             mip <= 32'h0;
-            mtvec <= 32'h00000000;
+            mtvec <= 32'h0;         //***test
             mepc <= 32'h0;
             mcause <= 32'h0;
         end else begin
@@ -71,6 +73,15 @@ module csr_regfile (
                     `CSR_MCAUSE:    mcause <= csr_wdata;
                     `CSR_MIP:       mip <= csr_wdata;
                 endcase
+            end
+            // 硬件设置外部中断挂起位（上升沿检测）
+            if (ext_irq) begin
+                mip[11] <= 1'b1;   // MEIP
+            end
+
+            // 中断响应后清除挂起位（可选）?
+            if (interrupt_taken && (mcause[31] == 1'b1) && (mcause[3:0] == 4'b1011)) begin
+                mip[11] <= 1'b0;
             end
             
             // MRET
@@ -97,6 +108,8 @@ module csr_regfile (
                 mstatus[3] <= 1'b0;        // 禁用中断
                 mstatus[12:11] <= 2'b11;   // 切换到机器模式
             end
+
+            
         end
     end
     

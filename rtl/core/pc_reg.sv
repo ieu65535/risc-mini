@@ -15,14 +15,20 @@ module pc_reg(
     output logic [31:0] id_inst,   
 
     output logic [31:0] inst_addr, 
-    output logic [31:0] pc
+    output logic [31:0] pc,
+
+    //interrupt
+    input  logic        interrupt,
+    input  logic [31:0] interrupt_vector
 );
 
 logic [31:0] fetch_pc; 
 logic [31:0] next_pc;
 
 always_comb begin
-    if (mispredict) begin
+    if (interrupt)             // 中断
+        next_pc = interrupt_vector;
+    else if (mispredict) begin
         next_pc = recovery_addr;   // 预测失败，跳回正确的地址
     end
     else if (stall) begin

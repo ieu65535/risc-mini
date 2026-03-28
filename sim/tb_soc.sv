@@ -7,6 +7,8 @@ module tb_soc;
     reg sys_clk ;
     reg rst_n ;
     wire [7:0] led ;
+    wire txd;
+    reg rxd;
 
     initial begin
         sys_clk = 1'b0 ;
@@ -22,16 +24,19 @@ module tb_soc;
 `endif
         $display("reset (startup)");
         rst_n = 1'b0;
+        rxd = 1;
         # 1e3    rst_n = 1;
+        #750   rxd = 0;
         # 2e6    $finish();
     end
 
-    wire txd;
+    
 
     soc u_soc(
         .clk   (sys_clk   ),
         .rst_n (rst_n ),
-        .txd   (txd   )
+        .txd   (txd   ),
+        .rxd   (rxd )
     );
 
 endmodule

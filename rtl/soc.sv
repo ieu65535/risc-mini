@@ -42,7 +42,9 @@ pipeline u_cpu(
     .mem_addr  (mem_addr  ),
     .mem_din   (mem_din   ),
     .mem_dout  (mem_dout  ),
-    .mem_we    (mem_we    )
+    .mem_we    (mem_we    ),
+    
+    .rxd       (rxd       )    
 );
 
 `ifdef SIMULATION

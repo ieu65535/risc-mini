@@ -9,7 +9,9 @@ module pipeline(
     input  logic [31:0] mem_dout,
     output logic [31:0] mem_din,
     output logic [31:0] mem_addr,
-    output logic [ 3:0] mem_we
+    output logic [ 3:0] mem_we,
+
+    input logic rxd
 );
 
 logic        stall;
@@ -31,6 +33,9 @@ logic [ 1:0] pc_sel_mem;
 logic        alu_cond_mem;
 logic [31:0] pc_mem;
 logic [31:0] alu_dout_mem;
+
+wire interrupt_taken;
+wire [31:0] interrupt_vector;
 
 assign predict_jump = (pc_sel == `PC_B) || (pc_sel == `PC_J);
 
@@ -55,7 +60,9 @@ pc_reg u_pc_reg(
     .mem_inst       (inst         ), 
     .id_inst        (id_inst      ), 
     .inst_addr      (inst_addr    ),
-    .pc             (pc           )
+    .pc             (pc           ),
+    .interrupt      (interrupt_taken),
+    .interrupt_vector(interrupt_vector)
 );
 
 wire [ 4:0] rs1_addr = id_inst[19:15];
@@ -111,8 +118,14 @@ wire [ 3:0] exception_code_de;
 wire [31:0] exception_pc_de;
 wire [31:0] csr_rdata;
 wire csr_illegal;
-wire interrupt_taken;
-wire [31:0] interrupt_vector;
+
+logic rxd_sync1, rxd_sync2;
+always_ff @(posedge clk) begin
+    rxd_sync1 <= rxd;
+    rxd_sync2 <= rxd_sync1;
+end
+wire rxd_test = !rxd_sync2; 
+
 
 csr_regfile u_csr_regfile(
     .clk              	(clk               ),
@@ -128,7 +141,8 @@ csr_regfile u_csr_regfile(
     .exception_pc     	(exception_pc_de   ),
     .exception_code   	(exception_code_de ),
     .interrupt_taken  	(interrupt_taken   ),
-    .interrupt_vector 	(interrupt_vector  )
+    .interrupt_vector 	(interrupt_vector  ),
+    .ext_irq            (rxd_test          ) 
 );
 
 
@@ -195,7 +209,7 @@ wire is_jump_ex   = (pc_sel_de == `PC_J) || (pc_sel_de == `PC_JR);
 
 //D to E register
 always_ff @(posedge clk) begin
-    if(rst | stall | mispredict) begin
+    if(rst | stall | mispredict | interrupt_taken) begin
         is_sra_de   <= 1'b0;
         is_sub_de   <= 1'b0;
         mem_mask_de <= 4'b0;
@@ -326,7 +340,7 @@ logic [ 31:0] csr_rdata_mem;
 
 //E to M register
 always_ff @(posedge clk) begin
-    if (rst | mispredict) begin
+    if (rst | mispredict | interrupt_taken) begin
         alu_dout_mem <= 32'h0;
         funct3_mem <= 3'b0; 
         wb_sel_mem <= `WB_ALU;
