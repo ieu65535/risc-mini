@@ -4,7 +4,7 @@ ifndef ICARUS
     VVP = vvp
 endif
 
-RTLS =  tb_soc.sv                        \
+RTLS =  tb_z.sv                        \
         ../rtl/soc.sv                    \
         ../rtl/core/cpu.sv               \
         ../rtl/core/alu.sv               \
@@ -14,6 +14,7 @@ RTLS =  tb_soc.sv                        \
         ../rtl/core/data_path.sv         \
         ../rtl/core/pipeline.sv          \
         ../rtl/core/ex.sv                \
+        ../rtl/core/csr_regfile.sv       \
         ../rtl/core/wb.sv                \
         ../rtl/peripherals/bus.sv        \
         ../rtl/peripherals/flash.sv      \

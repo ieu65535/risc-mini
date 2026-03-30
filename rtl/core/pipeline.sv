@@ -136,7 +136,7 @@ csr_regfile u_csr_regfile(
     .mepc_out           (mepc_out          ), // for PC update during MRET
     .csr_addr         	(csr_addr          ),
     .csr_wdata        	(csr_wdata         ),
-    .csr_op           	(csr_op            ),
+    .csr_op           	(csr_op_de         ),
     .csr_rdata        	(csr_rdata         ),
     .csr_illegal      	(csr_illegal       ),
     .mret             	(mret_mem          ),

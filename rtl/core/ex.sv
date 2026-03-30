@@ -47,12 +47,14 @@ logic [31:0] alu_dina;
 logic [31:0] alu_dinb;
 
 logic [31:0] csr_operand;
+logic [1:0] temp;
 assign csr_operand = csr_op[2]? {27'b0, inst[19:15]} : rs1_data;
+assign temp = csr_op[1:0];
 
 // CSR operation
 always_comb begin
     if (csr_en) begin
-        case (csr_op[1:0])
+        case (temp)
             2'b01: csr_wdata = csr_operand;
             2'b10: csr_wdata = csr_rdata | csr_operand;
             2'b11: csr_wdata = csr_rdata & ~csr_operand;
