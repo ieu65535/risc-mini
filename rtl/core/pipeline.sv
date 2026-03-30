@@ -35,6 +35,9 @@ logic [31:0] pc_mem;
 logic [31:0] alu_dout_mem;
 
 wire interrupt_taken;
+logic csr_en_de;
+wire interrupt_valid = interrupt_taken && ! csr_en_de;
+
 wire [31:0] interrupt_vector;
 
 assign predict_jump = (pc_sel == `PC_B) || (pc_sel == `PC_J);
@@ -61,7 +64,7 @@ pc_reg u_pc_reg(
     .id_inst        (id_inst      ), 
     .inst_addr      (inst_addr    ),
     .pc             (pc           ),
-    .interrupt      (interrupt_taken),
+    .interrupt      (interrupt_valid),
     .interrupt_vector(interrupt_vector)
 );
 
@@ -197,7 +200,6 @@ logic [31:0] rs2_data_de;
 logic [31:0] pc_de;
 
 // CSR related signals in DE stage
-logic        csr_en_de;
 logic [ 2:0] csr_op_de;
 logic        mret_de;
 logic        ecall_de;
@@ -209,7 +211,7 @@ wire is_jump_ex   = (pc_sel_de == `PC_J) || (pc_sel_de == `PC_JR);
 
 //D to E register
 always_ff @(posedge clk) begin
-    if(rst | stall | mispredict | interrupt_taken) begin
+    if(rst | stall | mispredict | interrupt_valid) begin
         is_sra_de   <= 1'b0;
         is_sub_de   <= 1'b0;
         mem_mask_de <= 4'b0;
@@ -340,7 +342,7 @@ logic [ 31:0] csr_rdata_mem;
 
 //E to M register
 always_ff @(posedge clk) begin
-    if (rst | mispredict | interrupt_taken) begin
+    if (rst | mispredict | interrupt_valid) begin
         alu_dout_mem <= 32'h0;
         funct3_mem <= 3'b0; 
         wb_sel_mem <= `WB_ALU;
