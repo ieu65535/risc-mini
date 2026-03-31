@@ -38,6 +38,9 @@ wire interrupt_taken;
 logic csr_en_de;
 wire interrupt_valid = interrupt_taken && ! csr_en_de;
 
+logic exception_de;
+wire exception_valid = exception_de && !csr_en_de; 
+
 wire [31:0] interrupt_vector;
 
 assign predict_jump = (pc_sel == `PC_B) || (pc_sel == `PC_J);
@@ -65,7 +68,8 @@ pc_reg u_pc_reg(
     .inst_addr      (inst_addr    ),
     .pc             (pc           ),
     .interrupt      (interrupt_valid),
-    .interrupt_vector(interrupt_vector)
+    .interrupt_vector(interrupt_vector),
+    .exception      (exception_valid)
 );
 
 wire [ 4:0] rs1_addr = id_inst[19:15];
@@ -112,12 +116,14 @@ reg_file u_reg_file(
 wire [11:0] csr_addr;
 wire [31:0] csr_wdata;
 wire [ 2:0] csr_op;
+logic [ 2:0] csr_op_de;
 wire csr_en;
 wire mret;
 wire ecall;
 wire ebreak;
 logic exception;
-logic exception_de;
+
+
 wire [ 3:0] exception_code_de;
 wire [31:0] exception_pc_de;
 wire [31:0] csr_rdata;
@@ -201,7 +207,6 @@ logic [31:0] rs2_data_de;
 logic [31:0] pc_de;
 
 // CSR related signals in DE stage
-logic [ 2:0] csr_op_de;
 logic        mret_de;
 logic        ecall_de;
 logic        ebreak_de;
@@ -212,7 +217,7 @@ wire is_jump_ex   = (pc_sel_de == `PC_J) || (pc_sel_de == `PC_JR);
 
 //D to E register
 always_ff @(posedge clk) begin
-    if(rst | stall | mispredict | interrupt_valid) begin
+    if(rst | stall | mispredict | interrupt_valid | exception_valid) begin
         is_sra_de   <= 1'b0;
         is_sub_de   <= 1'b0;
         mem_mask_de <= 4'b0;
@@ -345,7 +350,7 @@ logic [ 31:0] csr_rdata_mem;
 
 //E to M register
 always_ff @(posedge clk) begin
-    if (rst | mispredict | interrupt_valid) begin
+    if (rst | mispredict | interrupt_valid | exception_valid) begin
         alu_dout_mem <= 32'h0;
         funct3_mem <= 3'b0; 
         wb_sel_mem <= `WB_ALU;

@@ -19,13 +19,18 @@ module pc_reg(
 
     //interrupt
     input  logic        interrupt,
-    input  logic [31:0] interrupt_vector
+    input  logic [31:0] interrupt_vector,
+
+    input exception
 );
 
 logic [31:0] fetch_pc; 
 logic [31:0] next_pc;
 
 always_comb begin
+    if (exception)
+        next_pc = interrupt_vector;
+        //暂时同样用中断向量
     if (interrupt)             // 中断
         next_pc = interrupt_vector;
     else if (mispredict) begin
