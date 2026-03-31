@@ -116,7 +116,8 @@ wire csr_en;
 wire mret;
 wire ecall;
 wire ebreak;
-wire exception;
+logic exception;
+logic exception_de;
 wire [ 3:0] exception_code_de;
 wire [31:0] exception_pc_de;
 wire [31:0] csr_rdata;
@@ -299,6 +300,8 @@ always_comb begin
     else
         rs2_fwd = rs2_data_de;
 end
+
+logic [31:0] csr_rd_data;
 
 ex u_ex(
     .pc       (pc_de       ), 

@@ -111,6 +111,7 @@ module tb_pipeline();
         end
     endtask
 
+    integer timeout_cnt = 0;
     // ==========================================
     // 测试主流程
     // ==========================================
@@ -118,48 +119,70 @@ module tb_pipeline();
         rst = 1;
         rxd = 1; // 外部拉高，防止误触发
 
-        // --- Zicsr 完整指令集专项测试 ---
-        // 初始准备
-        imem[0] = 32'h00400093; // ADDI x1, x0, 4  (x1 = 4)
-        imem[1] = 32'h00200193; // ADDI x3, x0, 2  (x3 = 2)
+        imem[0] = 32'h04000093; // ADDI x1, x0, 64 (0x40)
+        imem[1] = 32'h30509073; // CSRRW x0, mtvec, x1
 
-        // 1. CSRRW (读写)
-        imem[2] = 32'h30409173; // CSRRW x2, mie, x1  -> mie 写为 4，x2 读出旧值 0
+        // 1. 测试 CSRRS 的 x0 免写机制
+        // 先给 mie 写入 0xF
+        imem[2] = 32'h00F00113; // ADDI x2, x0, 15
+        imem[3] = 32'h30411073; // CSRRW x0, mie, x2  -> mie = 15
+        // 使用 x0 作为 rs1。按照标准，这不应触发写动作。
+        imem[4] = 32'h30402173; // CSRRS x2, mie, x0  -> 预期：x2=15, mie 保持 15
 
-        // 2. CSRRS (读后置位)
-        imem[3] = 32'h3041A273; // CSRRS x4, mie, x3  -> mie = 4 | 2 = 6，x4 读出旧值 4
+        // 2. 测试非法 CSR 地址访问 (预期：触发异常，跳往 mtvec=0x40)
+        imem[5] = 32'hFFF09073; // CSRRW x0, 0xFFF, x1 (访问不存在的地址)
+        imem[6] = 32'h00100093; // ADDI x1, x0, 1 (这行不应被执行，因为上一行该跳走了)
 
-        // 3. CSRRC (读后清零)
-        imem[4] = 32'h3041B2F3; // CSRRC x5, mie, x3  -> mie = 6 & ~2 = 4，x5 读出旧值 6
-
-        // 4. CSRRWI (立即数读写)
-        imem[5] = 32'h3044D373; // CSRRWI x6, mie, 9  -> mie 写为 9，x6 读出旧值 4
-
-        // 5. CSRRSI (立即数置位)
-        imem[6] = 32'h304163F3; // CSRRSI x7, mie, 2  -> mie = 9 | 2 = 11，x7 读出旧值 9
-
-        // 6. CSRRCI (立即数清零)
-        imem[7] = 32'h3040F473; // CSRRCI x8, mie, 1  -> mie = 11 & ~1 = 10，x8 读出旧值 11
+        // --- 异常处理程序 (位于 0x40) ---
+        // 地址 0x40 (即 imem[16])
+        // 1. CSRRS x30, mepc, x0
+        imem[16] = 32'h34102F73; 
+        // 2. ADDI x30, x30, 4
+        imem[17] = 32'h004F0F13; 
+        // 3. CSRRW x0, mepc, x30
+        imem[18] = 32'h341F1073; 
+        // 4. MRET (此时 mepc 已经被软件改为了 0x18)
+        imem[19] = 32'h30200073;
         // ------------------------
 
         #15;
         rst = 0;
         $display("\n================ 测试开始 ================");
 
-        // 依次检查每条指令的结果 (每次检查 task 内部等了5拍让流水线走完)
-        check_reg(5'd2, 32'd0,  "CSRRW 读出值");
-        check_reg(5'd4, 32'd4,  "CSRRS 读出值");
-        check_reg(5'd5, 32'd6,  "CSRRC 读出值");
-        check_reg(5'd6, 32'd4,  "CSRRWI 读出值");
-        check_reg(5'd7, 32'd9,  "CSRRSI 读出值");
-        check_reg(5'd8, 32'd11, "CSRRCI 读出值");
+        // --- 开始测试 ---
+        rst = 0;
 
-        // 等待 MSTATUS 和 MIE 写完
-        repeat(7) @(posedge clk);
-        if (uut.u_csr_regfile.mie === 32'd10)
-            $display("[成功] Zicsr 综合测试 : mie 最终状态匹配 (10)");
+        // 1. 验证免写机制 (rs1=x0)
+        repeat(10) @(posedge clk);
+        if (uut.u_csr_regfile.mie === 32'hF) 
+            $display("[成功] 免写测试 : CSRRS x0 未修改寄存器值");
         else
-            $display("[失败] Zicsr 综合测试 : mie 最终期望 10, 实际为 %d", uut.u_csr_regfile.mie);
+            $display("[失败] 免写测试 : mie 被错误修改为 0x%h", uut.u_csr_regfile.mie);
+
+        // 2. 验证异常跳转与 mcause
+        // 等待非法指令触发并跳转
+        repeat(10) @(posedge clk);
+        if (uut.inst_addr === 32'h40) begin
+            $display("[成功] 异常跳转 : 成功跳往 mtvec (0x40)");
+            // 验证 mcause，按照你的代码，异常时最高位为 0
+            if (uut.u_csr_regfile.mcause[31] === 1'b0)
+                $display("[成功] 异常原因 : mcause 记录为同步异常");
+        end else begin
+            $display("[失败] 异常跳转 : PC 未能跳往 0x40，当前 PC: 0x%h", uut.inst_addr);
+        end
+
+        // 3. 验证 MRET 返回
+        // 动态等待 PC 到达 0x18，最多等 30 拍防止死循环挂死仿真
+        while (uut.inst_addr !== 32'h18 && timeout_cnt < 30) begin
+            @(posedge clk);
+            timeout_cnt++;
+        end
+
+        if (uut.inst_addr === 32'h18) begin
+            $display("[成功] MRET 返回 : 成功跳过非法指令，PC 恢复到 0x18 执行！");
+        end else begin
+            $display("[失败] MRET 返回 : PC 未能回到 0x18，当前 PC: 0x%0h", uut.inst_addr);
+        end
 
         $display("================ 测试结束 ================\n");
         $finish;
