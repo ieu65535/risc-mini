@@ -16,7 +16,15 @@
 
 这里介绍基于vscode的开发环境搭建，也可以使用vivado作为IDE。
 
-### 首先安装以下软件：
+### 方案一：dev containers 插件
+
+vscode的dev containers插件可以在docker容器中搭建开发环境，避免了环境配置的麻烦，推荐使用。
+
+需要安装docker或者podman。windows环境下可以安装Docker Desktop或者podman desktop。docker和podman的官网都有较为详细的dev containers环境配置教程
+
+### 方案二：手动安装环境
+
+#### 首先安装以下软件：
 
 - iverilog：轻量仿真工具，包含iverilog，vvp
 - vscode：代码编辑器
@@ -29,12 +37,12 @@
 
 注意，windows下iverilog自带gtkwave波形显示工具，不需要额外安装。ctags需要universal-ctags而不是老版本的。
 
-### 接着安装vscode插件：
+#### 接着安装vscode插件：
 
 - Verilog HDL：配合iverilog，ctags实现语法检查和代码跳转
 - WaveTrace：显示波形图，当然也可以用gtkwave
 
-### 最后进行插件配置：
+#### 最后进行插件配置：
 
 在.vscode文件夹中创建settings.json
 
