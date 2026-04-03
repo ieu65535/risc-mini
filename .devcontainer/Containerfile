@@ -1,0 +1,9 @@
+FROM mcr.azure.cn/devcontainers/base:debian
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    iverilog \
+    universal-ctags \
+    gcc-riscv64-unknown-elf \
+    picolibc-riscv64-unknown-elf \
+    make \
+    && rm -rf /var/lib/apt/lists/*

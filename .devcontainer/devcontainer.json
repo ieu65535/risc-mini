@@ -1,0 +1,17 @@
+{
+    "name": "Verilog Dev",
+    "build": {
+        "dockerfile": "Containerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "files.autoSave": "afterDelay"
+            },
+            "extensions": [
+                "mshr-h.veriloghdl",
+                "ms-vscode.cpptools"
+            ]
+        }
+    }
+}
