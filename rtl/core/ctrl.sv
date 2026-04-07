@@ -26,7 +26,7 @@ wire [2:0] funct3 = inst[14:12];
 wire     funct7_5 = inst[30];
 
 
-always_comb begin
+always @(*) begin
     inst_valid = 1;
     op1_sel = `OP1_RS1;
     op2_sel = `OP2_RS2;
@@ -96,20 +96,28 @@ always_comb begin
             rd_en = 1;
         end
         
-        `TYPE_CSR: begin 
-            //for debug
-            csr_en = 1'b1;
-            if (inst[14:12] != 3'b0) begin
-                rd_en = 1'b1;
+        `TYPE_CSR: begin
+            if (inst[14:12] != 3'b000) begin
+                // Zicsr instructions
+                csr_en = 1'b1;
+                rd_en  = 1'b1;
                 wb_sel = `WB_CSR;
                 csr_op = inst[14:12];
             end
-            else if (inst[31:20] == 12'h302) begin
-                mret = 1'b1;  // MRET
-            end else if (inst == 32'h00000073) begin
-                ecall = 1'b1;  // ECALL
-            end else if (inst == 32'h00100073) begin
-                ebreak = 1'b1; // EBREAK
+            else begin
+                // SYSTEM privilege instructions
+                if (inst == 32'h30200073) begin
+                    mret = 1'b1;    // MRET指令
+                end 
+                else if (inst == 32'h00000073) begin
+                    ecall = 1'b1;   // ECALL指令
+                end
+                else if (inst == 32'h00100073) begin
+                    ebreak = 1'b1;  // EBREAK指令
+                end
+                else begin
+                    inst_valid = 1'b0;
+                end
             end
         end
         default: inst_valid = 0;

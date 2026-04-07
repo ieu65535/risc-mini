@@ -66,4 +66,9 @@
 `define CSR_MEPC    12'h341
 `define CSR_MIE     12'h304
 `define CSR_MSTATUS 12'h300
-`define CSR_MSCRATCH 12'h340,
+`define CSR_MSCRATCH 12'h340
+
+`define CAUSE_ILLEGAL_INSTR 4'd2
+`define CAUSE_BREAKPOINT    4'd3
+`define CAUSE_ECALL_M       4'd11
+`define CAUSE_MEXT_IRQ      4'd11

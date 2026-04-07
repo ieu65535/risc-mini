@@ -26,6 +26,7 @@ module ex(
     input  logic        csr_en,
     input  logic [ 2:0] csr_op,
     input  logic [31:0] csr_rdata,
+    output logic csr_we,
     output logic [31:0] csr_wdata,
     output logic [11:0] csr_addr,
     output logic [31:0] csr_rd_data,  
@@ -51,6 +52,25 @@ logic [1:0] temp;
 assign csr_operand = csr_op[2]? {27'b0, inst[19:15]} : rs1_data;
 assign temp = csr_op[1:0];
 
+logic [4:0] csr_uimm;
+assign csr_uimm = inst[19:15];
+
+always @(*) begin
+    csr_we = 1'b0;
+    if (csr_en) begin
+        case (csr_op)
+            3'b001: csr_we = 1'b1;                    // CSRRW
+            3'b101: csr_we = 1'b1;                    // CSRRWI
+            3'b010: csr_we = (inst[19:15] != 5'b0);  // CSRRS
+            3'b011: csr_we = (inst[19:15] != 5'b0);  // CSRRC
+            3'b110: csr_we = (csr_uimm != 5'b0);     // CSRRSI
+            3'b111: csr_we = (csr_uimm != 5'b0);     // CSRRCI
+                //不写逻辑
+            default: csr_we = 1'b0;
+        endcase
+    end
+end
+
 // CSR operation
 always_comb begin
     if (csr_en) begin
@@ -72,16 +92,16 @@ always_comb begin
     exception_code = 4'b0;
     if (ecall_de) begin
         exception = 1'b1;
-        //exception_code = `CAUSE_ECALL;
+        exception_code = `CAUSE_ECALL_M;
     end else if (ebreak_de) begin
         exception = 1'b1;
-        //exception_code = `CAUSE_EBREAK;
-    end else if (!inst_valid) begin
+        exception_code = `CAUSE_BREAKPOINT;
+    end else if (!inst_valid && (inst != 32'h00000013)) begin
         exception = 1'b1;
-        //exception_code = `CAUSE_ILLEGAL_INSTR;
-    end else if (csr_illegal) begin
+        exception_code = `CAUSE_ILLEGAL_INSTR;
+    end else if (csr_illegal && csr_en) begin
         exception = 1'b1;
-        //exception_code = `CAUSE_ILLEGAL_INSTR;
+        exception_code = `CAUSE_ILLEGAL_INSTR;
     end
     exception_pc = pc;
 end

@@ -26,12 +26,13 @@ module pc_reg(
 
 logic [31:0] fetch_pc; 
 logic [31:0] next_pc;
+logic [31:0] id_inst_reg;
 
 always_comb begin
     if (exception)
         next_pc = interrupt_vector;
         //暂时同样用中断向量
-    if (interrupt)             // 中断
+    else if (interrupt)             // 中断
         next_pc = interrupt_vector;
     else if (mispredict) begin
         next_pc = recovery_addr;   // 预测失败，跳回正确的地址
@@ -47,7 +48,8 @@ always_comb begin
     end
 end
 
-assign inst_addr = next_pc;
+//assign inst_addr = next_pc;
+assign inst_addr = fetch_pc;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -62,8 +64,10 @@ always_ff @(posedge clk) begin
     if (rst) begin
         id_pc <= 32'h0;
     end else begin
-        id_pc <= inst_addr; 
+        //id_pc <= inst_addr; 
+        id_pc <= fetch_pc;
     end
+    id_inst_reg <= mem_inst;
 end
 
 assign pc = id_pc; 
@@ -71,6 +75,8 @@ assign pc = id_pc;
 logic flush_id;
 assign flush_id = mispredict; 
 
-assign id_inst = flush_id ? 32'h00000013 : mem_inst; // 冲刷为 NOP
+//assign id_inst = flush_id ? 32'h00000013 : mem_inst; // 冲刷为 NOP
+assign id_inst = flush_id ? 32'h00000013 : id_inst_reg; // 冲刷为 NOP
+
 
 endmodule
