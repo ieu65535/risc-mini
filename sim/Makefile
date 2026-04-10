@@ -4,7 +4,7 @@ ifndef ICARUS
     VVP = vvp
 endif
 
-RTLS =  tb_z2.sv                        \
+RTLS =  tb_soc.sv                        \
         ../rtl/soc.sv                    \
         ../rtl/core/cpu.sv               \
         ../rtl/core/alu.sv               \

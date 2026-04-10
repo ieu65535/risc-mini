@@ -223,7 +223,7 @@ logic        inst_valid_de;
 
 // D to E register
 always_ff @(posedge clk) begin
-    if (rst || mispredict || interrupt_valid || exception_valid) begin
+    if (rst || mispredict || interrupt_valid || exception_valid || stall) begin
         is_sra_de      <= 1'b0;
         is_sub_de      <= 1'b0;
         mem_mask_de    <= 4'b0;
@@ -244,27 +244,7 @@ always_ff @(posedge clk) begin
         ecall_de       <= 1'b0;
         ebreak_de      <= 1'b0;
         inst_valid_de  <= 1'b0;
-    end else if (stall) begin
-        is_sra_de      <= is_sra_de;
-        is_sub_de      <= is_sub_de;
-        mem_mask_de    <= mem_mask_de;
-        alu_ctrl_de    <= alu_ctrl_de;
-        op1_sel_de     <= op1_sel_de;
-        op2_sel_de     <= op2_sel_de;
-        rs1_data_de    <= rs1_data_de;
-        rs2_data_de    <= rs2_data_de;
-        rd_en_de       <= rd_en_de;
-        wb_sel_de      <= wb_sel_de;
-        pc_de          <= pc_de;
-        pc_sel_de      <= pc_sel_de;
-        inst_de        <= inst_de;
-
-        csr_en_de      <= csr_en_de;
-        csr_op_de      <= csr_op_de;
-        mret_de        <= mret_de;
-        ecall_de       <= ecall_de;
-        ebreak_de      <= ebreak_de;
-        inst_valid_de  <= inst_valid_de;
+    
     end else begin
         is_sra_de      <= is_sra;
         is_sub_de      <= is_sub;
@@ -305,6 +285,10 @@ always_comb begin
         rs1_fwd = pc_mem + 4;
     else if ((wb_sel_mem == `WB_CSR) && (rs1_addr_de == rd_addr_mem))
         rs1_fwd = csr_rd_data_mem;
+
+    else if ((wb_sel_mem == `WB_MEM) && (rs1_addr_de == rd_addr_mem))
+        rs1_fwd = mem_dout; 
+    //    
     else if (rs1_addr_de == rd_addr_wb)
         rs1_fwd = rd_data;
     else
@@ -320,6 +304,10 @@ always_comb begin
         rs2_fwd = pc_mem + 4;
     else if ((wb_sel_mem == `WB_CSR) && (rs2_addr_de == rd_addr_mem))
         rs2_fwd = csr_rd_data_mem;
+
+    else if ((wb_sel_mem == `WB_MEM) && (rs2_addr_de == rd_addr_mem))
+        rs2_fwd = mem_dout; 
+    // 
     else if (rs2_addr_de == rd_addr_wb)
         rs2_fwd = rd_data;
     else
@@ -343,6 +331,9 @@ always_comb begin
         csr_rdata_fwd = csr_rdata;
     end
 end
+
+wire [31:0] mem_din_ex;
+wire [ 3:0] mem_we_ex;
 
 ex u_ex(
     .pc              (pc_de             ),
@@ -379,8 +370,15 @@ ex u_ex(
 );
 
 assign mem_addr = alu_dout;
+//assign mem_addr = alu_dout_mem;  // 地址使用已经被流水线寄存的 alu_dout_mem
+//assign mem_din  = mem_din_mem;   // 写入数据使用 MEM 阶段的寄存器
+//assign mem_we   = mem_we_mem;    // 写入使能使用 MEM 阶段的寄存器
 
 logic [2:0] funct3_mem;
+
+logic [31:0] mem_din_mem;
+logic [31:0] mem_dout_mem;
+logic [ 3:0] mem_we_mem;
 
 logic        csr_we_mem;
 logic [11:0] csr_addr_mem;
@@ -412,6 +410,10 @@ always_ff @(posedge clk) begin
         exception_mem   <= 1'b0;
         exception_code_mem <= 4'b0;
         exception_pc_mem   <= 32'b0;
+
+        mem_din_mem     <= 32'b0;
+        mem_we_mem      <= 4'b0;
+        mem_dout_mem    <= 32'b0;
     end else begin
         alu_dout_mem    <= alu_dout;
         funct3_mem      <= inst_de[14:12];
@@ -431,6 +433,11 @@ always_ff @(posedge clk) begin
         exception_mem   <= exception_de;    // 来自 u_ex 的异常
         exception_code_mem <= exception_code_de;
         exception_pc_mem   <= exception_pc_de;
+
+        mem_dout_mem <= mem_dout; 
+        // mem_din_mem     <= mem_din_ex;
+        // mem_we_mem      <= mem_we_ex;
+        
     end
 end
 

@@ -3,6 +3,7 @@ module cpu(
     input  logic rst,
 
     input  logic [31:0] inst,
+    input  logic rxd,
     output logic [31:0] inst_addr,
 
     input  logic [31:0] mem_dout,

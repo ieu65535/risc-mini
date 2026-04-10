@@ -29,12 +29,14 @@ logic [31:0] next_pc;
 logic [31:0] id_inst_reg;
 
 always_comb begin
-    if (exception)
-        next_pc = interrupt_vector;
-        //暂时同样用中断向量
-    else if (interrupt)             // 中断
-        next_pc = interrupt_vector;
-    else if (mispredict) begin
+    // if (exception)
+    //     next_pc = interrupt_vector;
+    //     //暂时同样用中断向量
+    // else 
+    // if (interrupt)             // 中断
+    //     next_pc = interrupt_vector;
+    // else 
+    if (mispredict) begin
         next_pc = recovery_addr;   // 预测失败，跳回正确的地址
     end
     else if (stall) begin
@@ -73,10 +75,10 @@ end
 assign pc = id_pc; 
 
 logic flush_id;
-assign flush_id = mispredict; 
+assign flush_id = mispredict | interrupt | exception;
 
-//assign id_inst = flush_id ? 32'h00000013 : mem_inst; // 冲刷为 NOP
-assign id_inst = flush_id ? 32'h00000013 : id_inst_reg; // 冲刷为 NOP
+assign id_inst = flush_id ? 32'h00000013 : mem_inst; // 冲刷为 NOP
+//assign id_inst = flush_id ? 32'h00000013 : id_inst_reg; // 冲刷为 NOP
 
 
 endmodule
