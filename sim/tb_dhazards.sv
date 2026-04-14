@@ -105,7 +105,7 @@ module tb_hazard();
                     // 1. ID 阶段预测跳转
                     if (dut.predict_jump) begin
                         jump_occurred = 1;
-                        actual_jump_target = dut.predict_addr;
+                        actual_jump_target = dut.u_pc_reg.pred_pc;
                     end
                     
                     // 2. EX 阶段纠正预测

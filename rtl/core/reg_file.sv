@@ -19,9 +19,7 @@ initial begin
 end
 
 always_ff @(posedge clk) begin
-    if (rd_addr != 5'd0) begin 
-        regs[rd_addr] <= rd_data;
-    end
+    regs[rd_addr] <= rd_data;
 end
 
 always_comb begin

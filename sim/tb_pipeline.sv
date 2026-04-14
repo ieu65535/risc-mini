@@ -107,7 +107,7 @@ module tb_pipeline();
                     // a) ID 阶段的“预测跳转” (B型 / JAL)
                     if (dut.predict_jump) begin
                         jump_occurred = 1;
-                        actual_jump_target = dut.predict_addr;
+                        actual_jump_target = dut.u_pc_reg.pred_pc;
                     end
                     
                     // b) EX 阶段的“预测失败纠正” (优先级更高，会覆盖前面的预测结果)

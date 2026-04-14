@@ -97,7 +97,10 @@ ctrl u_ctrl(
     .pc_sel     (pc_sel     )
 );
 
-wire [4:0] rd_addr_ex = inst_ex[11:7];
+// for test
+logic predict_jump;
+assign predict_jump = (pc_sel == `PC_B) || (pc_sel == `PC_J);
+
 assign stall = (wb_sel_ex == `WB_MEM) && (rd_addr_ex != 5'b0) && ((rs1_addr == rd_addr_ex) || (rs2_addr == rd_addr_ex));
 
 logic [31:0] alu_dout_mem;
@@ -115,12 +118,9 @@ logic [ 1:0] op2_sel_ex;
 logic [31:0] inst_ex;
 logic [31:0] rs1_data_ex;
 logic [31:0] rs2_data_ex;
-logic        rd_en_ex;
+logic [ 4:0] rd_addr_ex;
 logic [ 1:0] wb_sel_ex;
 logic [31:0] pc_ex;
-
-wire is_branch_ex = (pc_sel_ex == `PC_B);
-wire is_jump_ex   = (pc_sel_ex == `PC_J) || (pc_sel_ex == `PC_JR);
 
 always_ff @(posedge clk) begin
     if(rst | stall | pc_mis) begin
@@ -133,11 +133,10 @@ always_ff @(posedge clk) begin
         inst_ex     <= 32'h0;
         rs1_data_ex <= 32'h0;
         rs2_data_ex <= 32'h0;
-        rd_en_ex    <= 1'b0;
+        rd_addr_ex  <= 5'b0;
         wb_sel_ex   <= `WB_ALU;
         pc_ex       <= 32'h0;
         pc_sel_ex   <= `PC_N;
-        inst_ex     <= 32'h00000013; // NOP
     end else begin
         is_sra_ex   <= is_sra;
         is_sub_ex   <= is_sub;
@@ -147,7 +146,7 @@ always_ff @(posedge clk) begin
         op2_sel_ex  <= op2_sel;
         rs1_data_ex <= rs1_data;
         rs2_data_ex <= rs2_data;
-        rd_en_ex    <= rd_en;
+        rd_addr_ex  <= rd_en? inst[11:7] : 5'b0;
         wb_sel_ex   <= wb_sel;
         pc_ex       <= pc;
         pc_sel_ex   <= pc_sel;
@@ -157,36 +156,36 @@ end
 
 wire [4:0] rs1_addr_ex = inst_ex[19:15];
 wire [4:0] rs2_addr_ex = inst_ex[24:20];
-logic [31:0] rs1_fwd;
-logic [31:0] rs2_fwd;
+logic [31:0] rs1;
+logic [31:0] rs2;
 
 always_comb begin
     if (rs1_addr_ex == 0) 
-        rs1_fwd = 0;
+        rs1 = 0;
     // 正常 ALU 结果前推
     else if ((wb_sel_mem == `WB_ALU) && (rs1_addr_ex == rd_addr_mem))
-        rs1_fwd = alu_dout_mem; 
+        rs1 = alu_dout_mem; 
     // JAL/JALR 的 PC+4 前推
     else if ((wb_sel_mem == `WB_PC4) && (rs1_addr_ex == rd_addr_mem))
-        rs1_fwd = pc_mem + 4; 
+        rs1 = pc_mem + 4; 
     // 从 WB 阶段前推
     else if (rs1_addr_ex == rd_addr_wb)
-        rs1_fwd = rd_data;      
+        rs1 = rd_data;      
     else
-        rs1_fwd = rs1_data_ex;
+        rs1 = rs1_data_ex;
 end
 
 always_comb begin
     if (rs2_addr_ex == 0) 
-        rs2_fwd = 0;
+        rs2 = 0;
     else if ((wb_sel_mem == `WB_ALU) && (rs2_addr_ex == rd_addr_mem))
-        rs2_fwd = alu_dout_mem;
+        rs2 = alu_dout_mem;
     else if ((wb_sel_mem == `WB_PC4) && (rs2_addr_ex == rd_addr_mem))
-        rs2_fwd = pc_mem + 4;
+        rs2 = pc_mem + 4;
     else if (rs2_addr_ex == rd_addr_wb)
-        rs2_fwd = rd_data;
+        rs2 = rd_data;
     else
-        rs2_fwd = rs2_data_ex;
+        rs2 = rs2_data_ex;
 end
 
 ex u_ex(
@@ -194,8 +193,8 @@ ex u_ex(
     .inst     (inst_ex     ), 
     .alu_dout (alu_dout    ), 
     .alu_cond (alu_cond    ), 
-    .rs1_data (rs1_fwd     ), 
-    .rs2_data (rs2_fwd     ), 
+    .rs1_data (rs1         ), 
+    .rs2_data (rs2         ), 
     .op1_sel  (op1_sel_ex  ), 
     .op2_sel  (op2_sel_ex  ), 
     .alu_ctrl (alu_ctrl_ex ), 
@@ -204,7 +203,7 @@ ex u_ex(
 );
 
 assign mem_addr = alu_dout;
-assign mem_din = rs2_fwd << {mem_addr[1:0], 3'b0};
+assign mem_din = rs2 << {mem_addr[1:0], 3'b0};
 assign mem_we = mem_mask_ex << mem_addr[1:0];
 
 
@@ -225,7 +224,7 @@ always_ff @(posedge clk) begin
         funct3_mem   <= inst_ex[14:12]; 
         wb_sel_mem   <= wb_sel_ex;
         pc_mem       <= pc_ex;
-        rd_addr_mem  <= rd_en_ex ? inst_ex[11:7] : 5'b0;
+        rd_addr_mem  <= rd_addr_ex;
         pc_sel_mem   <= pc_sel_ex;
         alu_cond_mem <= alu_cond;
     end
