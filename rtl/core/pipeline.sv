@@ -68,12 +68,12 @@ always_comb begin
     mispredict = 1'b0;
     recovery_addr = 32'b0;
 
-    if (pc_sel_mem == `PC_B && !alu_cond_mem) begin
+    if (pc_sel_de == `PC_B && !alu_cond) begin
         mispredict = 1'b1;
-        recovery_addr = pc_mem + 4;
-    end else if (pc_sel_mem == `PC_JR) begin
+        recovery_addr = pc_de + 4;
+    end else if (pc_sel_de == `PC_JR) begin
         mispredict = 1'b1;
-        recovery_addr = alu_dout_mem & 32'hFFFFFFFE; 
+        recovery_addr = alu_dout & 32'hFFFFFFFE; 
     end
 end
 
@@ -226,7 +226,7 @@ logic [ 3:0] funct3_mem;
 logic [31:0] pc_mem;
 
 always_ff @(posedge clk) begin
-    if (rst | mispredict) begin
+    if (rst) begin
         alu_dout_mem <= 32'h0;
         funct3_mem <= 3'b0; 
         wb_sel_mem <= `WB_ALU;
