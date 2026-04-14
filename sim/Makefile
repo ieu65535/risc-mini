@@ -35,7 +35,7 @@ VCDS = risc-mini.vcd
 
 SRCS = ../src/risc-mini.mem
 
-DEPS = $(SRCS) $(RTLS) $(INCS)
+DEPS = $(SRCS) $(RTLS) $(INCS) Makefile
 
 all: $(VCDS)
 	@echo simulation ok.

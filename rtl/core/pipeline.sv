@@ -20,40 +20,20 @@ logic [ 1:0] pc_sel;
 logic [1:0] pc_sel_de;
 logic [31:0] id_inst;
 
-wire [31:0] imm_B_id = $signed({id_inst[31], id_inst[7], id_inst[30:25], id_inst[11:8], 1'b0});
-wire [31:0] imm_J_id = $signed({id_inst[31], id_inst[19:12], id_inst[20], id_inst[30:21], 1'b0});
-
-logic predict_jump;
-logic [31:0] predict_addr;
-
-assign predict_jump = (pc_sel == `PC_B) || (pc_sel == `PC_J);
-
-always_comb begin
-    if (pc_sel == `PC_B) begin
-        predict_addr = pc + imm_B_id;
-    end else if (pc_sel == `PC_J) begin
-        predict_addr = pc + imm_J_id;
-    end else begin
-        predict_addr = 32'b0;
-    end
-end
-
 pc_reg u_pc_reg(
-    .clk            (clk          ),
-    .rst            (rst          ),
-    .stall          (stall        ),
-    .predict_jump   (predict_jump ), 
-    .predict_addr   (predict_addr ), 
-    .pc_mis         (pc_mis       ), 
-    .target_pc      (target_pc    ), 
-    .mem_inst       (inst         ), 
-    .id_inst        (id_inst      ), 
-    .inst_addr      (inst_addr    ),
-    .pc             (pc           )
+    .clk       (clk       ),
+    .rst       (rst       ),
+    .stall     (stall     ),
+    .inst      (inst      ),
+    .pc_mis    (pc_mis    ),
+    .target_pc (target_pc ),
+    .pc_sel    (pc_sel    ),
+    .inst_addr (inst_addr ),
+    .pc        (pc        )
 );
 
-wire [ 4:0] rs1_addr = id_inst[19:15];
-wire [ 4:0] rs2_addr = id_inst[24:20];
+wire [ 4:0] rs1_addr = inst[19:15];
+wire [ 4:0] rs2_addr = inst[24:20];
 logic [31:0] rs1_data;
 logic [31:0] rs2_data;
 logic [ 4:0] rd_addr_wb;
@@ -104,7 +84,7 @@ logic       rd_en;
 logic [1:0] wb_sel;
 
 ctrl u_ctrl(
-    .inst       (id_inst    ),
+    .inst       (inst    ),
     .inst_valid (inst_valid ),
     .op1_sel    (op1_sel    ),
     .op2_sel    (op2_sel    ),
@@ -171,7 +151,7 @@ always_ff @(posedge clk) begin
         wb_sel_de   <= wb_sel;
         pc_de       <= pc;
         pc_sel_de   <= pc_sel;
-        inst_de     <= id_inst;
+        inst_de     <= inst;
     end
 end
 
