@@ -17,7 +17,7 @@ logic [31:0] pc;
 logic [31:0] alu_dout;
 logic        alu_cond;
 logic [ 1:0] pc_sel;
-logic [1:0] pc_sel_de;
+logic [1:0] pc_sel_ex;
 logic [31:0] id_inst;
 
 pc_reg u_pc_reg(
@@ -45,7 +45,7 @@ logic pc_mis;
 logic [31:0] target_pc;
 
 always_comb begin
-    case (pc_sel_de)
+    case (pc_sel_ex)
         `PC_N: pc_mis = 0;
         `PC_J: pc_mis = 0;
         `PC_B: pc_mis = !alu_cond;
@@ -55,10 +55,10 @@ end
 
 wire [31:0] jr_addr = {alu_dout[31:1], 1'b0};
 always_comb begin
-    case (pc_sel_de)
+    case (pc_sel_ex)
         `PC_N: target_pc = 0;
         `PC_J: target_pc = 0;
-        `PC_B: target_pc = pc_de + 4;
+        `PC_B: target_pc = pc_ex + 4;
         `PC_JR: target_pc = jr_addr;
     endcase
 end
@@ -97,8 +97,8 @@ ctrl u_ctrl(
     .pc_sel     (pc_sel     )
 );
 
-wire [4:0] rd_addr_de = inst_de[11:7];
-assign stall = (wb_sel_de == `WB_MEM) && rd_en_de && (rd_addr_de != 5'b0) && ((rs1_addr == rd_addr_de) || (rs2_addr == rd_addr_de));
+wire [4:0] rd_addr_ex = inst_ex[11:7];
+assign stall = (wb_sel_ex == `WB_MEM) && (rd_addr_ex != 5'b0) && ((rs1_addr == rd_addr_ex) || (rs2_addr == rd_addr_ex));
 
 logic [31:0] alu_dout_mem;
 logic [ 1:0] wb_sel_mem;
@@ -106,106 +106,106 @@ logic [ 4:0] rd_addr_mem;
 logic [ 1:0] pc_sel_mem;
 logic        alu_cond_mem;
 
-logic        is_sra_de;
-logic        is_sub_de;
-logic [ 3:0] mem_mask_de;
-logic [ 2:0] alu_ctrl_de;
-logic [ 1:0] op1_sel_de;
-logic [ 1:0] op2_sel_de;
-logic [31:0] inst_de;
-logic [31:0] rs1_data_de;
-logic [31:0] rs2_data_de;
-logic        rd_en_de;
-logic [ 1:0] wb_sel_de;
-logic [31:0] pc_de;
+logic        is_sra_ex;
+logic        is_sub_ex;
+logic [ 3:0] mem_mask_ex;
+logic [ 2:0] alu_ctrl_ex;
+logic [ 1:0] op1_sel_ex;
+logic [ 1:0] op2_sel_ex;
+logic [31:0] inst_ex;
+logic [31:0] rs1_data_ex;
+logic [31:0] rs2_data_ex;
+logic        rd_en_ex;
+logic [ 1:0] wb_sel_ex;
+logic [31:0] pc_ex;
 
-wire is_branch_ex = (pc_sel_de == `PC_B);
-wire is_jump_ex   = (pc_sel_de == `PC_J) || (pc_sel_de == `PC_JR);
+wire is_branch_ex = (pc_sel_ex == `PC_B);
+wire is_jump_ex   = (pc_sel_ex == `PC_J) || (pc_sel_ex == `PC_JR);
 
 always_ff @(posedge clk) begin
     if(rst | stall | pc_mis) begin
-        is_sra_de   <= 1'b0;
-        is_sub_de   <= 1'b0;
-        mem_mask_de <= 4'b0;
-        alu_ctrl_de <= 3'b0;
-        op1_sel_de  <= 2'b0;
-        op2_sel_de  <= 2'b0;
-        inst_de     <= 32'h0;
-        rs1_data_de <= 32'h0;
-        rs2_data_de <= 32'h0;
-        rd_en_de    <= 1'b0;
-        wb_sel_de   <= `WB_ALU;
-        pc_de       <= 32'h0;
-        pc_sel_de   <= `PC_N;
-        inst_de     <= 32'h00000013; // NOP
+        is_sra_ex   <= 1'b0;
+        is_sub_ex   <= 1'b0;
+        mem_mask_ex <= 4'b0;
+        alu_ctrl_ex <= 3'b0;
+        op1_sel_ex  <= 2'b0;
+        op2_sel_ex  <= 2'b0;
+        inst_ex     <= 32'h0;
+        rs1_data_ex <= 32'h0;
+        rs2_data_ex <= 32'h0;
+        rd_en_ex    <= 1'b0;
+        wb_sel_ex   <= `WB_ALU;
+        pc_ex       <= 32'h0;
+        pc_sel_ex   <= `PC_N;
+        inst_ex     <= 32'h00000013; // NOP
     end else begin
-        is_sra_de   <= is_sra;
-        is_sub_de   <= is_sub;
-        mem_mask_de <= mem_mask;
-        alu_ctrl_de <= alu_ctrl;
-        op1_sel_de  <= op1_sel;
-        op2_sel_de  <= op2_sel;
-        rs1_data_de <= rs1_data;
-        rs2_data_de <= rs2_data;
-        rd_en_de    <= rd_en;
-        wb_sel_de   <= wb_sel;
-        pc_de       <= pc;
-        pc_sel_de   <= pc_sel;
-        inst_de     <= inst;
+        is_sra_ex   <= is_sra;
+        is_sub_ex   <= is_sub;
+        mem_mask_ex <= mem_mask;
+        alu_ctrl_ex <= alu_ctrl;
+        op1_sel_ex  <= op1_sel;
+        op2_sel_ex  <= op2_sel;
+        rs1_data_ex <= rs1_data;
+        rs2_data_ex <= rs2_data;
+        rd_en_ex    <= rd_en;
+        wb_sel_ex   <= wb_sel;
+        pc_ex       <= pc;
+        pc_sel_ex   <= pc_sel;
+        inst_ex     <= inst;
     end
 end
 
-wire [4:0] rs1_addr_de = inst_de[19:15];
-wire [4:0] rs2_addr_de = inst_de[24:20];
+wire [4:0] rs1_addr_ex = inst_ex[19:15];
+wire [4:0] rs2_addr_ex = inst_ex[24:20];
 logic [31:0] rs1_fwd;
 logic [31:0] rs2_fwd;
 
 always_comb begin
-    if (rs1_addr_de == 0) 
+    if (rs1_addr_ex == 0) 
         rs1_fwd = 0;
     // 正常 ALU 结果前推
-    else if ((wb_sel_mem == `WB_ALU) && (rs1_addr_de == rd_addr_mem))
+    else if ((wb_sel_mem == `WB_ALU) && (rs1_addr_ex == rd_addr_mem))
         rs1_fwd = alu_dout_mem; 
     // JAL/JALR 的 PC+4 前推
-    else if ((wb_sel_mem == `WB_PC4) && (rs1_addr_de == rd_addr_mem))
+    else if ((wb_sel_mem == `WB_PC4) && (rs1_addr_ex == rd_addr_mem))
         rs1_fwd = pc_mem + 4; 
     // 从 WB 阶段前推
-    else if (rs1_addr_de == rd_addr_wb)
+    else if (rs1_addr_ex == rd_addr_wb)
         rs1_fwd = rd_data;      
     else
-        rs1_fwd = rs1_data_de;
+        rs1_fwd = rs1_data_ex;
 end
 
 always_comb begin
-    if (rs2_addr_de == 0) 
+    if (rs2_addr_ex == 0) 
         rs2_fwd = 0;
-    else if ((wb_sel_mem == `WB_ALU) && (rs2_addr_de == rd_addr_mem))
+    else if ((wb_sel_mem == `WB_ALU) && (rs2_addr_ex == rd_addr_mem))
         rs2_fwd = alu_dout_mem;
-    else if ((wb_sel_mem == `WB_PC4) && (rs2_addr_de == rd_addr_mem))
+    else if ((wb_sel_mem == `WB_PC4) && (rs2_addr_ex == rd_addr_mem))
         rs2_fwd = pc_mem + 4;
-    else if (rs2_addr_de == rd_addr_wb)
+    else if (rs2_addr_ex == rd_addr_wb)
         rs2_fwd = rd_data;
     else
-        rs2_fwd = rs2_data_de;
+        rs2_fwd = rs2_data_ex;
 end
 
 ex u_ex(
-    .pc       (pc_de       ), 
-    .inst     (inst_de     ), 
+    .pc       (pc_ex       ), 
+    .inst     (inst_ex     ), 
     .alu_dout (alu_dout    ), 
     .alu_cond (alu_cond    ), 
     .rs1_data (rs1_fwd     ), 
     .rs2_data (rs2_fwd     ), 
-    .op1_sel  (op1_sel_de  ), 
-    .op2_sel  (op2_sel_de  ), 
-    .alu_ctrl (alu_ctrl_de ), 
-    .is_sub   (is_sub_de   ), 
-    .is_sra   (is_sra_de   )
+    .op1_sel  (op1_sel_ex  ), 
+    .op2_sel  (op2_sel_ex  ), 
+    .alu_ctrl (alu_ctrl_ex ), 
+    .is_sub   (is_sub_ex   ), 
+    .is_sra   (is_sra_ex   )
 );
 
 assign mem_addr = alu_dout;
 assign mem_din = rs2_fwd << {mem_addr[1:0], 3'b0};
-assign mem_we = mem_mask_de << mem_addr[1:0];
+assign mem_we = mem_mask_ex << mem_addr[1:0];
 
 
 logic [ 3:0] funct3_mem;
@@ -222,11 +222,11 @@ always_ff @(posedge clk) begin
         alu_cond_mem <= 1'b0;
     end else begin
         alu_dout_mem <= alu_dout;
-        funct3_mem   <= inst_de[14:12]; 
-        wb_sel_mem   <= wb_sel_de;
-        pc_mem       <= pc_de;
-        rd_addr_mem  <= rd_en_de ? inst_de[11:7] : 5'b0;
-        pc_sel_mem   <= pc_sel_de;
+        funct3_mem   <= inst_ex[14:12]; 
+        wb_sel_mem   <= wb_sel_ex;
+        pc_mem       <= pc_ex;
+        rd_addr_mem  <= rd_en_ex ? inst_ex[11:7] : 5'b0;
+        pc_sel_mem   <= pc_sel_ex;
         alu_cond_mem <= alu_cond;
     end
 end

@@ -110,9 +110,9 @@ module tb_hazard();
                     
                     // 2. EX 阶段纠正预测
                     if (dut.pc_mis) begin
-                        // 动态判断：如果纠正的目标地址正好是这根分支指令的下一条 (pc_de + 4)
+                        // 动态判断：如果纠正的目标地址正好是这根分支指令的下一条 (pc_ex + 4)
                         // 说明 ALU 算出来的结果是“不满足条件”，退回了顺序执行，也就是实际上“没跳”
-                        if (dut.target_pc == dut.pc_de + 4) begin
+                        if (dut.target_pc == dut.pc_ex + 4) begin
                             jump_occurred = 0;
                             actual_jump_target = 32'h0;
                         end else begin
