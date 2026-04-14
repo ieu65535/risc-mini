@@ -210,17 +210,17 @@ ex u_ex(
     .alu_cond (alu_cond    ), 
     .rs1_data (rs1_fwd     ), 
     .rs2_data (rs2_fwd     ), 
-    .mem_din  (mem_din     ), 
-    .mem_we   (mem_we      ), 
     .op1_sel  (op1_sel_de  ), 
     .op2_sel  (op2_sel_de  ), 
     .alu_ctrl (alu_ctrl_de ), 
     .is_sub   (is_sub_de   ), 
-    .is_sra   (is_sra_de   ), 
-    .mem_mask (mem_mask_de )
+    .is_sra   (is_sra_de   )
 );
 
 assign mem_addr = alu_dout;
+assign mem_din = rs2_fwd << {mem_addr[1:0], 3'b0};
+assign mem_we = mem_mask_de << mem_addr[1:0];
+
 
 logic [ 3:0] funct3_mem;
 logic [31:0] pc_mem;
