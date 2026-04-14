@@ -44,8 +44,8 @@ pc_reg u_pc_reg(
     .stall          (stall        ),
     .predict_jump   (predict_jump ), 
     .predict_addr   (predict_addr ), 
-    .mispredict     (mispredict   ), 
-    .recovery_addr  (recovery_addr), 
+    .mispredict     (pc_mis   ), 
+    .recovery_addr  (target_pc), 
     .mem_inst       (inst         ), 
     .id_inst        (id_inst      ), 
     .inst_addr      (inst_addr    ),
@@ -61,20 +61,26 @@ logic [31:0] rd_data;
 logic [31:0] jump_addr;
 logic        do_jump;
 
-logic mispredict;
-logic [31:0] recovery_addr;
+logic pc_mis;
+logic [31:0] target_pc;
 
 always_comb begin
-    mispredict = 1'b0;
-    recovery_addr = 32'b0;
+    case (pc_sel_de)
+        `PC_N: pc_mis = 0;
+        `PC_J: pc_mis = 0;
+        `PC_B: pc_mis = !alu_cond;
+        `PC_JR: pc_mis = 1;
+    endcase
+end
 
-    if (pc_sel_de == `PC_B && !alu_cond) begin
-        mispredict = 1'b1;
-        recovery_addr = pc_de + 4;
-    end else if (pc_sel_de == `PC_JR) begin
-        mispredict = 1'b1;
-        recovery_addr = alu_dout & 32'hFFFFFFFE; 
-    end
+wire [31:0] jr_addr = {alu_dout[31:1], 1'b0};
+always_comb begin
+    case (pc_sel_de)
+        `PC_N: target_pc = 0;
+        `PC_J: target_pc = 0;
+        `PC_B: target_pc = pc_de + 4;
+        `PC_JR: target_pc = jr_addr;
+    endcase
 end
 
 reg_file u_reg_file(
@@ -137,7 +143,7 @@ wire is_branch_ex = (pc_sel_de == `PC_B);
 wire is_jump_ex   = (pc_sel_de == `PC_J) || (pc_sel_de == `PC_JR);
 
 always_ff @(posedge clk) begin
-    if(rst | stall | mispredict) begin
+    if(rst | stall | pc_mis) begin
         is_sra_de   <= 1'b0;
         is_sub_de   <= 1'b0;
         mem_mask_de <= 4'b0;
