@@ -8,8 +8,8 @@ module pc_reg(
     input  logic        predict_jump,  
     input  logic [31:0] predict_addr, 
 
-    input  logic        mispredict,    
-    input  logic [31:0] recovery_addr, 
+    input  logic        pc_mis,    
+    input  logic [31:0] target_pc, 
 
     input  logic [31:0] mem_inst,  
     output logic [31:0] id_inst,   
@@ -22,8 +22,8 @@ logic [31:0] fetch_pc;
 logic [31:0] next_pc;
 
 always_comb begin
-    if (mispredict) begin
-        next_pc = recovery_addr;   // 预测失败，跳回正确的地址
+    if (pc_mis) begin
+        next_pc = target_pc;   // 预测失败，跳回正确的地址
     end
     else if (stall) begin
         next_pc = fetch_pc;       // 保持 PC 不变
@@ -58,7 +58,7 @@ end
 assign pc = id_pc; 
 
 logic flush_id;
-assign flush_id = mispredict; 
+assign flush_id = pc_mis; 
 
 assign id_inst = flush_id ? 32'h00000013 : mem_inst; // 冲刷为 NOP
 

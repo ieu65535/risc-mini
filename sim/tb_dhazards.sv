@@ -109,16 +109,16 @@ module tb_hazard();
                     end
                     
                     // 2. EX 阶段纠正预测
-                    if (dut.mispredict) begin
+                    if (dut.pc_mis) begin
                         // 动态判断：如果纠正的目标地址正好是这根分支指令的下一条 (pc_de + 4)
                         // 说明 ALU 算出来的结果是“不满足条件”，退回了顺序执行，也就是实际上“没跳”
-                        if (dut.recovery_addr == dut.pc_de + 4) begin
+                        if (dut.target_pc == dut.pc_de + 4) begin
                             jump_occurred = 0;
                             actual_jump_target = 32'h0;
                         end else begin
                             // 如果是 JALR 等需要在 EX 阶段才算出真实目标的指令
                             jump_occurred = 1;
-                            actual_jump_target = dut.recovery_addr;
+                            actual_jump_target = dut.target_pc;
                         end
                     end
                 end
@@ -232,6 +232,39 @@ module tb_hazard();
             0, 0, 0,
             1, 32'd24 
         );
+
+// -----------------------------------------------------------
+// 新增测试：栈保存序列（连续 store 指令的数据冒险与写内存验证）
+// -----------------------------------------------------------
+
+        // 为 s0, s1, s2 设置易于识别的初值
+        dut.u_reg_file.regs[8]  = 32'hA5A5A5A5;   // s0
+        dut.u_reg_file.regs[9]  = 32'hB5B5B5B5;   // s1
+        dut.u_reg_file.regs[18] = 32'hC5C5C5C5;   // s2
+        // ra (x1) 会被任务内部清零，因此期望存储值为 0
+
+        // 调用任务执行指令序列
+        test_hazard_sequence(
+            "栈保存序列 (连续 Store)",
+            32'hff010113, 32'h01212023, 32'h00912223, 32'h00812423, 32'h00112623,
+            5,                // 5 条指令
+            0, 0, 0,          // 无预加载
+            0, 0, 0,          // 不检查寄存器写回
+            1, 32'hFFFFFFF0, 32'hC5C5C5C5,  // 仅校验第一个内存地址（其余可在下方补充校验）
+            0, 0              // 无跳转检查
+        );
+
+        // 补充校验其余三个栈位置（因任务只支持一次内存校验）
+        if (data_mem[8'hFC] !== 32'hC5C5C5C5)   // sp+0  -> s2
+            $error("栈偏移 0 数据错误，期望 0xC5C5C5C5, 实际 0x%h", data_mem[8'hFC]);
+        if (data_mem[8'hFD] !== 32'hB5B5B5B5)   // sp+4  -> s1
+            $error("栈偏移 4 数据错误，期望 0xB5B5B5B5, 实际 0x%h", data_mem[8'hFD]);
+        if (data_mem[8'hFE] !== 32'hA5A5A5A5)   // sp+8  -> s0
+            $error("栈偏移 8 数据错误，期望 0xA5A5A5A5, 实际 0x%h", data_mem[8'hFE]);
+        if (data_mem[8'hFF] !== 32'h00000000)   // sp+12 -> ra (已被清零)
+            $error("栈偏移 12 数据错误，期望 0x00000000, 实际 0x%h", data_mem[8'hFF]);
+        else
+            $display("栈保存序列内存校验全部通过");
 
         $display("========================================");
         $display("               测试全部结束               ");
