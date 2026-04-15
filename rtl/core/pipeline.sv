@@ -159,33 +159,64 @@ wire [4:0] rs2_addr_ex = inst_ex[24:20];
 logic [31:0] rs1;
 logic [31:0] rs2;
 
-always_comb begin
-    if (rs1_addr_ex == 0) 
-        rs1 = 0;
-    // 正常 ALU 结果前推
-    else if ((wb_sel_mem == `WB_ALU) && (rs1_addr_ex == rd_addr_mem))
-        rs1 = alu_dout_mem; 
-    // JAL/JALR 的 PC+4 前推
-    else if ((wb_sel_mem == `WB_PC4) && (rs1_addr_ex == rd_addr_mem))
-        rs1 = pc_mem + 4; 
-    // 从 WB 阶段前推
-    else if (rs1_addr_ex == rd_addr_wb)
-        rs1 = rd_data;      
-    else
-        rs1 = rs1_data_ex;
+always_ff @(posedge clk) begin
+    if (rs1_addr == 0) rs1 <= 0;
+    else begin
+        if (rs1_addr == rd_addr_ex) begin
+            case (wb_sel_ex)
+                `WB_ALU: rs1 <= alu_dout;
+                `WB_MEM: rs1 <= 0;
+                `WB_PC4: rs1 <= pc_ex + 4;
+                default: rs1 <= 0;
+            endcase
+        end
+        else begin
+            if (rs1_addr == rd_addr_mem) begin
+                case (wb_sel_mem)
+                    `WB_ALU: rs1 <= alu_dout_mem;
+                    `WB_MEM: rs1 <= mem_data;
+                    `WB_PC4: rs1 <= pc_mem + 4;
+                    default: rs1 <= 0;
+                endcase
+            end
+            else begin
+                if (rs1_addr == rd_addr_wb)
+                    rs1 <= rd_data;
+                else
+                    rs1 <= rs1_data;
+            end
+        end
+    end
 end
 
-always_comb begin
-    if (rs2_addr_ex == 0) 
-        rs2 = 0;
-    else if ((wb_sel_mem == `WB_ALU) && (rs2_addr_ex == rd_addr_mem))
-        rs2 = alu_dout_mem;
-    else if ((wb_sel_mem == `WB_PC4) && (rs2_addr_ex == rd_addr_mem))
-        rs2 = pc_mem + 4;
-    else if (rs2_addr_ex == rd_addr_wb)
-        rs2 = rd_data;
-    else
-        rs2 = rs2_data_ex;
+always_ff @(posedge clk) begin
+    if (rs2_addr == 0) rs2 <= 0;
+    else begin
+        if (rs2_addr == rd_addr_ex) begin
+            case (wb_sel_ex)
+                `WB_ALU: rs2 <= alu_dout;
+                `WB_MEM: rs2 <= 0;
+                `WB_PC4: rs2 <= pc_ex + 4;
+                default: rs2 <= 0;
+            endcase
+        end
+        else begin
+            if (rs2_addr == rd_addr_mem) begin
+                case (wb_sel_mem)
+                    `WB_ALU: rs2 <= alu_dout_mem;
+                    `WB_MEM: rs2 <= mem_data;
+                    `WB_PC4: rs2 <= pc_mem + 4;
+                    default: rs2 <= 0;
+                endcase
+            end
+            else begin
+                if (rs2_addr == rd_addr_wb)
+                    rs2 <= rd_data;
+                else
+                    rs2 <= rs2_data;
+            end
+        end
+    end
 end
 
 ex u_ex(
