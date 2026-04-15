@@ -1,7 +1,6 @@
 `include "instructions.vh"
 `include "micro.vh"
 module wb (
-    input  logic [ 2:0] funct3,
     input  logic [ 1:0] wb_sel,
     input  logic [31:0] alu_dout,
     input  logic [31:0] pc,

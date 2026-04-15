@@ -216,7 +216,6 @@ lmb u_lmb(
 );
 
 logic [31:0] alu_dout_wb;
-logic [ 2:0] funct3_wb;
 logic [ 1:0] wb_sel_wb;
 logic [ 4:0] rd_addr_wb;
 logic [31:0] pc_wb;
@@ -225,14 +224,12 @@ logic [31:0] mem_data_wb;
 always_ff @(posedge clk) begin
     if (rst) begin
         alu_dout_wb <= 32'h0;
-        funct3_wb <= 3'b0;
         wb_sel_wb <= `WB_ALU;
         rd_addr_wb <= 5'b0;
         pc_wb <= 32'h0;
         mem_data_wb <= 32'h0;
     end else begin
         alu_dout_wb <= alu_dout_mem;
-        funct3_wb <= funct3_mem;
         wb_sel_wb <= wb_sel_mem;
         rd_addr_wb <= rd_addr_mem;
         pc_wb <= pc_mem;
@@ -241,7 +238,6 @@ always_ff @(posedge clk) begin
 end
 
 wb u_wb(
-    .funct3   (funct3_wb   ),
     .wb_sel   (wb_sel_wb   ),
     .alu_dout (alu_dout_wb ),
     .pc       (pc_wb       ),
