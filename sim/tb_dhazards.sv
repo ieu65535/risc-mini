@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "micro.vh"
 
 module tb_hazard();
 
@@ -103,7 +104,7 @@ module tb_hazard();
                     @(posedge clk);
                     
                     // 1. ID 阶段预测跳转
-                    if (dut.predict_jump) begin
+                    if ((dut.pc_sel == `PC_B) || (dut.pc_sel == `PC_J)) begin
                         jump_occurred = 1;
                         actual_jump_target = dut.u_pc_reg.pred_pc;
                     end

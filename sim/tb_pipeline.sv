@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "micro.vh"
 
 module tb_pipeline();
 
@@ -105,7 +106,7 @@ module tb_pipeline();
                     @(posedge clk);
                     
                     // a) ID 阶段的“预测跳转” (B型 / JAL)
-                    if (dut.predict_jump) begin
+                    if ((dut.pc_sel == `PC_B) || (dut.pc_sel == `PC_J)) begin
                         jump_occurred = 1;
                         actual_jump_target = dut.u_pc_reg.pred_pc;
                     end
