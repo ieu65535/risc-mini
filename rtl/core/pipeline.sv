@@ -12,10 +12,24 @@ module pipeline(
     output logic [ 3:0] mem_we
 );
 
-
 logic        stall;
 logic        pc_mis;
 logic [31:0] target_pc;
+
+ctrl u_ctrl(
+    .rs1_addr   (rs1_addr   ),
+    .rs2_addr   (rs2_addr   ),
+    .rd_addr_ex (rd_addr_ex ),
+    .wb_sel_ex  (wb_sel_ex  ),
+    .pc_sel_ex  (pc_sel_ex  ),
+    .alu_cond   (alu_cond   ),
+    .alu_dout   (alu_dout   ),
+    .pc_ex      (pc_ex      ),
+    .stall      (stall      ),
+    .pc_mis     (pc_mis     ),
+    .target_pc  (target_pc  )
+);
+
 logic [31:0] pc;
 
 pc_reg u_pc_reg(
@@ -94,8 +108,6 @@ forward u_forward(
     .rs2          (rs2          )
 );
 
-assign stall = (wb_sel_ex == `WB_MEM) && (rd_addr_ex != 5'b0) && ((rs1_addr == rd_addr_ex) || (rs2_addr == rd_addr_ex));
-
 logic        is_sra_ex;
 logic        is_sub_ex;
 logic [ 3:0] mem_mask_ex;
@@ -158,25 +170,6 @@ ex u_ex(
     .is_sub   (is_sub_ex   ), 
     .is_sra   (is_sra_ex   )
 );
-
-always_comb begin
-    case (pc_sel_ex)
-        `PC_N: pc_mis = 0;
-        `PC_J: pc_mis = 0;
-        `PC_B: pc_mis = !alu_cond;
-        `PC_JR: pc_mis = 1;
-    endcase
-end
-
-wire [31:0] jr_addr = {alu_dout[31:1], 1'b0};
-always_comb begin
-    case (pc_sel_ex)
-        `PC_N: target_pc = 0;
-        `PC_J: target_pc = 0;
-        `PC_B: target_pc = pc_ex + 4;
-        `PC_JR: target_pc = jr_addr;
-    endcase
-end
 
 logic [31:0] alu_dout_mem;
 logic [ 2:0] funct3_mem;
