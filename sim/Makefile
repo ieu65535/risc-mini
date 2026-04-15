@@ -13,7 +13,7 @@ RTLS =  $(TB_MOUDLE)                     \
         ../rtl/soc.sv                    \
         ../rtl/core/alu.sv               \
         ../rtl/core/lmb.sv               \
-        ../rtl/core/ctrl.sv              \
+        ../rtl/core/decoder.sv           \
         ../rtl/core/forward.sv           \
         ../rtl/core/reg_file.sv          \
         ../rtl/core/pc_reg.sv            \

@@ -1,6 +1,6 @@
 `include "instructions.vh"
 `include "micro.vh"
-module ctrl (
+module decoder (
     input logic [31:0] inst,
 
     output logic inst_valid,

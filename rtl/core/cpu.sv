@@ -38,7 +38,7 @@ logic       rd_en;
 logic [1:0] wb_sel;
 logic [1:0] pc_sel;
 
-ctrl u_ctrl(
+decoder u_decoder(
     .inst       (inst       ),
     .inst_valid (inst_valid ),
     .op1_sel    (op1_sel    ),
