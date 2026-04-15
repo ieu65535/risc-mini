@@ -202,13 +202,22 @@ ex u_ex(
     .is_sra   (is_sra_ex   )
 );
 
-assign mem_addr = alu_dout;
-assign mem_din = rs2 << {mem_addr[1:0], 3'b0};
-assign mem_we = mem_mask_ex << mem_addr[1:0];
-
-
-logic [ 3:0] funct3_mem;
+logic [ 2:0] funct3_mem;
+logic [31:0] mem_data;
 logic [31:0] pc_mem;
+
+lmb u_lmb(
+    .alu_dout     (alu_dout     ),
+    .alu_dout_mem (alu_dout_mem ),
+    .rs2          (rs2          ),
+    .mem_mask     (mem_mask_ex  ),
+    .funct3       (funct3_mem   ),
+    .mem_dout     (mem_dout     ),
+    .mem_din      (mem_din      ),
+    .mem_addr     (mem_addr     ),
+    .mem_we       (mem_we       ),
+    .mem_data     (mem_data     )
+);
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -234,7 +243,7 @@ logic [31:0] alu_dout_wb;
 logic [ 2:0] funct3_wb;
 logic [ 1:0] wb_sel_wb;
 logic [31:0] pc_wb;
-logic [31:0] mem_dout_wb;
+logic [31:0] mem_data_wb;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -243,14 +252,14 @@ always_ff @(posedge clk) begin
         wb_sel_wb <= `WB_ALU;
         rd_addr_wb <= 5'b0;
         pc_wb <= 32'h0;
-        mem_dout_wb <= 32'h0;
+        mem_data_wb <= 32'h0;
     end else begin
         alu_dout_wb <= alu_dout_mem;
         funct3_wb <= funct3_mem;
         wb_sel_wb <= wb_sel_mem;
         rd_addr_wb <= rd_addr_mem;
         pc_wb <= pc_mem;
-        mem_dout_wb <= mem_dout;
+        mem_data_wb <= mem_data;
     end
 end
 
@@ -259,8 +268,18 @@ wb u_wb(
     .wb_sel   (wb_sel_wb   ),
     .alu_dout (alu_dout_wb ),
     .pc       (pc_wb       ),
-    .mem_dout (mem_dout_wb ),
+    .mem_data (mem_data_wb ),
     .dout     (rd_data     )
 );
+
+`ifdef SIMULATION
+initial begin
+	$dumpvars(1, stall, pc_mis, target_pc);
+    $dumpvars(1, rs1, rs2, rd_data, mem_dout, alu_dout, alu_dout_mem);
+    // $dumpvars(1, rd_addr_mem, rd_addr_wb, alu_dout, alu_dout_mem);
+    // $dumpvars(1, rs1_data, rs1_addr_ex, op1_sel_ex);
+    $dumpvars(1, rs2_data, rs2_addr_ex, op2_sel_ex);
+end
+`endif
 
 endmodule

@@ -267,6 +267,56 @@ module tb_hazard();
             $display("栈保存序列内存校验全部通过");
 
         $display("========================================");
+        $display("          memcpy 循环冒险测试             ");
+        $display("========================================");
+
+        // 1. 指令加载：将 memcpy 代码置于地址 0x00 开始
+        inst_mem[0] = 32'h00050313; // 00: mv t1, a0
+        inst_mem[1] = 32'h00060e63; // 04: beqz a2, 0x20
+        inst_mem[2] = 32'h00058383; // 08: lb t2, 0(a1)
+        inst_mem[3] = 32'h00730023; // 0c: sb t2, 0(t1)
+        inst_mem[4] = 32'hfff60613; // 10: addi a2, a2, -1
+        inst_mem[5] = 32'h00130313; // 14: addi t1, t1, 1
+        inst_mem[6] = 32'h00158593; // 18: addi a1, a1, 1
+        inst_mem[7] = 32'hfe0616e3; // 1c: bnez a2, 0x08
+        inst_mem[8] = 32'h00008067; // 20: ret
+
+        // 其余指令地址填充 NOP
+        for (int i = 9; i < 256; i++) inst_mem[i] = 32'h00000013;
+
+        // 2. 源数据区域（地址 0x100 开始，16 字节）
+        data_mem[8'h40] = 32'hDEADBEEF; // 0x100
+        data_mem[8'h41] = 32'hCAFEBABE; // 0x104
+        data_mem[8'h42] = 32'h12345678; // 0x108
+        data_mem[8'h43] = 32'h9ABCDEF0; // 0x10C
+        // 目标区域清零（地址 0x200 开始）
+        data_mem[8'h80] = 32'h0;
+        data_mem[8'h81] = 32'h0;
+        data_mem[8'h82] = 32'h0;
+        data_mem[8'h83] = 32'h0;
+
+        // 3. 设置寄存器初值（直接访问 regfile）
+        dut.u_reg_file.regs[10] = 32'h00000200; // a0 = 目标地址
+        dut.u_reg_file.regs[11] = 32'h00000100; // a1 = 源地址
+        dut.u_reg_file.regs[12] = 32'd16;       // a2 = 长度 16 字节
+
+        // 4. 复位 CPU 并启动
+        rst = 1;
+        #20;
+        rst = 0;
+
+        // 5. 运行足够周期（循环 16 次，每次约 7 条指令，加上流水线填充）
+        repeat(200) @(posedge clk);
+
+        // 6. 校验目标内存
+        $write("memcpy 测试: ");
+        if (data_mem[8'h80] !== 32'hDEADBEEF) $display("\n  -> [FAIL] 0x200 期望 0xDEADBEEF, 实际 0x%h", data_mem[8'h80]);
+        else if (data_mem[8'h81] !== 32'hCAFEBABE) $display("\n  -> [FAIL] 0x204 期望 0xCAFEBABE, 实际 0x%h", data_mem[8'h81]);
+        else if (data_mem[8'h82] !== 32'h12345678) $display("\n  -> [FAIL] 0x208 期望 0x12345678, 实际 0x%h", data_mem[8'h82]);
+        else if (data_mem[8'h83] !== 32'h9ABCDEF0) $display("\n  -> [FAIL] 0x20C 期望 0x9ABCDEF0, 实际 0x%h", data_mem[8'h83]);
+        else $display("[PASS]");
+        
+        $display("========================================");
         $display("               测试全部结束               ");
         $display("========================================");
         $finish;
