@@ -12,13 +12,11 @@ module ex(
     input  logic [31:0] rs1_data,
     input  logic [31:0] rs2_data,
 
-    output logic [31:0] mem_din,
-    output logic [ 3:0] mem_we,
-
     input  logic [1:0] op1_sel,
     input  logic [1:0] op2_sel,
     input  logic [2:0] alu_ctrl,
     input  logic       is_sub,
+<<<<<<< HEAD
     input  logic       is_sra,
     input  logic [3:0] mem_mask,
 
@@ -38,6 +36,9 @@ module ex(
     output logic        exception,
     output logic [ 3:0] exception_code,
     output logic [31:0] exception_pc
+=======
+    input  logic       is_sra
+>>>>>>> origin/ieu-dev
 );
 
 wire [31:0] imm_I = $signed(inst[31:20]);
@@ -132,8 +133,5 @@ alu u_alu(
     .cond   (alu_cond   ),
     .dout   (alu_dout   )
 );
-
-assign mem_din = rs2_data << {alu_dout[1:0], 3'b0};
-assign mem_we = mem_mask << alu_dout[1:0];
 
 endmodule
