@@ -4,12 +4,7 @@ module wb (
     input  logic [ 1:0] wb_sel,
     input  logic [31:0] alu_dout,
     input  logic [31:0] pc,
-<<<<<<< HEAD
-    input  logic [31:0] mem_dout,
-    input  logic [31:0] csr_data,
-=======
     input  logic [31:0] mem_data,
->>>>>>> origin/ieu-dev
     output logic [31:0] dout
 );
 

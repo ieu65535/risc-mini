@@ -16,29 +16,7 @@ module ex(
     input  logic [1:0] op2_sel,
     input  logic [2:0] alu_ctrl,
     input  logic       is_sub,
-<<<<<<< HEAD
-    input  logic       is_sra,
-    input  logic [3:0] mem_mask,
-
-    // CSR
-    input  logic        csr_en,
-    input  logic [ 2:0] csr_op,
-    input  logic [31:0] csr_rdata,
-    output logic csr_we,
-    output logic [31:0] csr_wdata,
-    output logic [11:0] csr_addr,
-    output logic [31:0] csr_rd_data,  
-    input  logic        mret_de,
-    input  logic        ecall_de,
-    input  logic        ebreak_de,
-    input  logic        inst_valid,
-    input  logic        csr_illegal,
-    output logic        exception,
-    output logic [ 3:0] exception_code,
-    output logic [31:0] exception_pc
-=======
     input  logic       is_sra
->>>>>>> origin/ieu-dev
 );
 
 wire [31:0] imm_I = $signed(inst[31:20]);
