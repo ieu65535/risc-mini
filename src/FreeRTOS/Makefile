@@ -5,9 +5,6 @@ PROJ = FreeRTOS
 
 TARGETS = $(PROJ).elf
 
-LDFLAGS += -Xlinker --gc-sections -Wl,-Map,$(OUTPUT_DIR)/RTOSDemo.map \
-           -Wl,--start-group -Wl,--end-group
-
 KERNEL_DIR = ./Source
 KERNEL_PORT_DIR += $(KERNEL_DIR)/portable/RISC-V
 INCLUDE_DIRS += -I$(KERNEL_DIR)/include \
@@ -23,6 +20,10 @@ SOURCE_FILES += $(KERNEL_DIR)/portable/MemMang/heap_4.c
 SOURCE_FILES += $(KERNEL_PORT_DIR)/port.c
 ASM_SOURCE_FILES += $(KERNEL_PORT_DIR)/portASM.S
 
+#
+# Common demo files for the "full" build, as opposed to the "blinky" build -
+# these files are build by all the FreeRTOS kernel demos.
+#
 DEMO_ROOT = ./Demo
 COMMON_DEMO_FILES = $(DEMO_ROOT)/Common/Minimal
 INCLUDE_DIRS += -I$(DEMO_ROOT)/Common/include
@@ -53,6 +54,10 @@ SOURCE_FILES += $(COMMON_DEMO_FILES)/TaskNotify.c
 SOURCE_FILES += $(COMMON_DEMO_FILES)/TaskNotifyArray.c
 SOURCE_FILES += $(COMMON_DEMO_FILES)/TimerDemo.c
 
+#
+# Application entry point.  main_blinky is self contained.  main_full builds
+# the above common demo (and test) files too.
+#
 DEMO_PROJECT = .
 VPATH += $(DEMO_PROJECT)
 INCLUDE_DIRS += -I$(DEMO_PROJECT)
@@ -99,4 +104,4 @@ include $(wildcard $(DEP_OUTPUT))
 clean:
 	rm -f $(TARGETS) $(OUTPUT_DIR)/*.o $(OUTPUT_DIR)/*.d $(OUTPUT_DIR)/*.map
 
-.PHONY: all rtos clean
+.PHONY: all clean

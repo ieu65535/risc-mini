@@ -1,8 +1,8 @@
 include config.mk
 
 # Add your application here:
-# APPLICATION = FreeRTOS
-APPLICATION = hello
+APPLICATION = FreeRTOS
+# APPLICATION = hello
 
 PROJ = risc-mini
 
@@ -18,7 +18,7 @@ $(DEPS):
 $(PROJ).bin: $(DEPS) Makefile
 	$(OC) $(OCFLAGS) $< $@
 
-PMEM_DEPTH=10
+PMEM_DEPTH=12
 PMEM_SIZE=$(shell echo $$((4<<$(PMEM_DEPTH))))
 
 $(PROJ).mem: $(PROJ).bin
