@@ -4,14 +4,20 @@ ifndef ICARUS
     VVP = vvp
 endif
 
-RTLS =  tb_soc.sv                        \
+TB_MOUDLE = tb_soc.sv
+# TB_MOUDLE = tb_control.sv
+# TB_MOUDLE = tb_dhazards.sv
+# TB_MOUDLE = tb_pipeline.sv
+
+RTLS =  $(TB_MOUDLE)                     \
         ../rtl/soc.sv                    \
-        ../rtl/core/cpu.sv               \
         ../rtl/core/alu.sv               \
+        ../rtl/core/lmb.sv               \
         ../rtl/core/ctrl.sv              \
+        ../rtl/core/decoder.sv           \
+        ../rtl/core/forward.sv           \
         ../rtl/core/reg_file.sv          \
         ../rtl/core/pc_reg.sv            \
-        ../rtl/core/data_path.sv         \
         ../rtl/core/pipeline.sv          \
         ../rtl/core/ex.sv                \
         ../rtl/core/csr_regfile.sv       \
@@ -33,7 +39,7 @@ VCDS = risc-mini.vcd
 
 SRCS = ../src/risc-mini.mem
 
-DEPS = $(SRCS) $(RTLS) $(INCS)
+DEPS = $(SRCS) $(RTLS) $(INCS) Makefile
 
 all: $(VCDS)
 	@echo simulation ok.

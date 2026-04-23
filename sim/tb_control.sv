@@ -172,8 +172,8 @@ module tb_control();
         setup_test("JALR 寄存器跳转 (结合数据前推与纠正)");
         load_inst(0,  32'h01400093); // ADDI x1, x0, 20
         load_inst(4,  32'h000082e7); // JALR x5, x1, 0   (跳转到 x1+0=20, x5 记为 8)
-        load_inst(8,  32'h06400313); // ADDI x6, x0, 100 (应在 EX 阶段被 mispredict 杀掉！)
-        load_inst(12, 32'h0c800313); // ADDI x6, x0, 200 (应在 EX 阶段被 mispredict 杀掉！)
+        load_inst(8,  32'h06400313); // ADDI x6, x0, 100 (应在 EX 阶段被 pc_mis 杀掉！)
+        load_inst(12, 32'h0c800313); // ADDI x6, x0, 200 (应在 EX 阶段被 pc_mis 杀掉！)
         load_inst(16, 32'h00000013); // NOP
         load_inst(20, 32'h03200313); // ADDI x6, x0, 50  (正确目标地址指令)
         run_and_check(5, 32'd8, 6, 32'd50);

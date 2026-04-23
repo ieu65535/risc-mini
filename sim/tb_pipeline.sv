@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "micro.vh"
 
 module tb_pipeline();
 
@@ -99,28 +100,28 @@ module tb_pipeline();
         fork
             begin
                 // 【核心修改点】监听分支预测与纠正
-                // 注意：这里假设 predict_jump, predict_addr, mispredict, recovery_addr 
+                // 注意：这里假设 predict_jump, predict_addr, pc_mis, target_pc 
                 // 是在 pipeline.sv 顶层声明的 wire/logic。如果它们在内部模块，请修改层级路径。
                 while (1) begin
                     @(posedge clk);
                     
                     // a) ID 阶段的“预测跳转” (B型 / JAL)
-                    if (dut.predict_jump) begin
+                    if ((dut.pc_sel == `PC_B) || (dut.pc_sel == `PC_J)) begin
                         jump_occurred = 1;
-                        actual_jump_target = dut.predict_addr;
+                        actual_jump_target = dut.u_pc_reg.pred_pc;
                     end
                     
                     // b) EX 阶段的“预测失败纠正” (优先级更高，会覆盖前面的预测结果)
-                    if (dut.mispredict) begin
+                    if (dut.pc_mis) begin
                         // 如果纠正地址是 4 (因为我们测试单指令，PC是0，下一条是4)
                         // 说明 ALU 发现条件不满足，退回了顺序执行，实际上等于没跳
-                        if (dut.recovery_addr == 32'h4) begin
+                        if (dut.target_pc == 32'h4) begin
                             jump_occurred = 0; 
                             actual_jump_target = 32'h0;
                         end else begin
                             // 如果是 JALR 等需要在 EX 阶段给出真实目标的指令
                             jump_occurred = 1;
-                            actual_jump_target = dut.recovery_addr;
+                            actual_jump_target = dut.target_pc;
                         end
                     end
                 end
@@ -252,7 +253,7 @@ module tb_pipeline();
             0, 32'd0, 32'd0,
             0, 0, 32'd0,
             0, 32'd0, 32'd0,
-            0, 32'd0 // 期望发生 mispredict 纠正，最终判定为没跳
+            0, 32'd0 // 期望发生 pc_mis 纠正，最终判定为没跳
         );
 
         $display("========================================");
