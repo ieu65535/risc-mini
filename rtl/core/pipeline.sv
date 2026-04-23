@@ -66,7 +66,11 @@ decoder u_decoder(
     .mem_mask   (mem_mask   ),
     .rd_en      (rd_en      ),
     .wb_sel     (wb_sel     ),
-    .pc_sel     (pc_sel     )
+    .pc_sel     (pc_sel     ),
+
+    .csr_we     (csr_we     ),
+    .is_ecall   (is_ecall   ),
+    .is_mret    (is_mret    )
 );
 
 wire  [ 4:0] rs1_addr = inst[19:15];
@@ -108,6 +112,39 @@ forward u_forward(
     .rs2          (rs2          )
 );
 
+
+logic [31:0] csr_rdata_ex;
+logic [31:0] csr_wdata_ex;
+logic [31:0] csr_mepc;
+logic [31:0] csr_mtvec;
+logic        csr_mstatus_mie;
+logic csr_we_ex;
+logic is_ecall_ex;
+logic is_mret_ex;
+
+csr_file u_csr_file(
+    .clk             (clk),
+    .rst_n           (~rst),  // 注意你的 rst 是高有效，csr_file 里用的是低有效
+    
+    // EX 阶段进行 CSR 读写
+    .csr_we          (csr_we_ex),
+    .csr_waddr       (inst_ex[31:20]),
+    .csr_wdata       (csr_wdata_ex),
+    .csr_raddr       (inst_ex[31:20]),
+    .csr_rdata       (csr_rdata_ex),
+    
+    // 异常/中断相关 (目前先接 0，第二阶段再处理)
+    .trap_valid      (1'b0), 
+    .mret_valid      (1'b0),
+    .trap_pc         (32'h0),
+    .trap_cause      (32'h0),
+    
+    // 直通输出
+    .csr_mepc_out    (csr_mepc),
+    .csr_mtvec_out   (csr_mtvec),
+    .csr_mstatus_mie (csr_mstatus_mie)
+);
+
 logic        is_sra_ex;
 logic        is_sub_ex;
 logic [ 3:0] mem_mask_ex;
@@ -137,6 +174,10 @@ always_ff @(posedge clk) begin
         wb_sel_ex   <= `WB_ALU;
         pc_ex       <= 32'h0;
         pc_sel_ex   <= `PC_N;
+
+        csr_we_ex   <= 1'b0;
+        is_ecall_ex <= 1'b0;
+        is_mret_ex  <= 1'b0;
     end else begin
         is_sra_ex   <= is_sra;
         is_sub_ex   <= is_sub;
@@ -151,8 +192,13 @@ always_ff @(posedge clk) begin
         wb_sel_ex   <= wb_sel;
         pc_ex       <= pc;
         pc_sel_ex   <= pc_sel;
+
+        csr_we_ex   <= csr_we;
+        is_ecall_ex <= is_ecall;
+        is_mret_ex  <= is_mret;
     end
 end
+
 
 logic [31:0] alu_dout;
 logic        alu_cond;
@@ -168,7 +214,10 @@ ex u_ex(
     .op2_sel  (op2_sel_ex  ), 
     .alu_ctrl (alu_ctrl_ex ), 
     .is_sub   (is_sub_ex   ), 
-    .is_sra   (is_sra_ex   )
+    .is_sra   (is_sra_ex   ),
+    .csr_rdata (csr_rdata_ex),
+    .csr_wdata (csr_wdata_ex)
+
 );
 
 logic [31:0] alu_dout_mem;
@@ -176,6 +225,7 @@ logic [ 2:0] funct3_mem;
 logic [ 1:0] wb_sel_mem;
 logic [31:0] pc_mem;
 logic [ 4:0] rd_addr_mem;
+logic [31:0] csr_rdata_mem;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -184,12 +234,14 @@ always_ff @(posedge clk) begin
         wb_sel_mem <= `WB_ALU;
         pc_mem <= 32'h0;
         rd_addr_mem <= 5'b0;
+        csr_rdata_mem <= 32'h0;
     end else begin
         alu_dout_mem <= alu_dout;
         funct3_mem   <= inst_ex[14:12]; 
         wb_sel_mem   <= wb_sel_ex;
         pc_mem       <= pc_ex;
         rd_addr_mem  <= rd_addr_ex;
+        csr_rdata_mem <= csr_rdata_ex;
     end
 end
 
@@ -213,6 +265,8 @@ logic [ 1:0] wb_sel_wb;
 logic [ 4:0] rd_addr_wb;
 logic [31:0] pc_wb;
 logic [31:0] mem_data_wb;
+logic [31:0] csr_rdata_wb;
+
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -221,12 +275,14 @@ always_ff @(posedge clk) begin
         rd_addr_wb <= 5'b0;
         pc_wb <= 32'h0;
         mem_data_wb <= 32'h0;
+        csr_rdata_wb <= 32'h0;
     end else begin
         alu_dout_wb <= alu_dout_mem;
         wb_sel_wb <= wb_sel_mem;
         rd_addr_wb <= rd_addr_mem;
         pc_wb <= pc_mem;
         mem_data_wb <= mem_data;
+        csr_rdata_wb <= csr_rdata_mem;
     end
 end
 
@@ -235,6 +291,7 @@ wb u_wb(
     .alu_dout (alu_dout_wb ),
     .pc       (pc_wb       ),
     .mem_data (mem_data_wb ),
+    .csr_rdata (csr_rdata_wb),
     .dout     (rd_data     )
 );
 

@@ -12,13 +12,17 @@ module decoder (
     output logic [3:0] mem_mask,
     output logic       rd_en,
     output logic [1:0] wb_sel,
-    output logic [1:0] pc_sel
+    output logic [1:0] pc_sel,
+
+    output logic       csr_we,     // 写 CSR 使能
+    output logic       is_ecall,   // 产生环境调用异常
+    output logic       is_mret     // 异常返回
 );
 wire [6:0] opcode = inst[6:0];
 wire [2:0] funct3 = inst[14:12];
 wire     funct7_5 = inst[30];
 
-always_comb begin
+always @(*) begin
     inst_valid = 1;
     op1_sel = `OP1_RS1;
     op2_sel = `OP2_RS2;
@@ -29,6 +33,10 @@ always_comb begin
     rd_en = 0;
     wb_sel = `WB_ALU;
     pc_sel = `PC_N;
+
+    csr_we = 0;
+    is_ecall = 0;
+    is_mret = 0;
     case (opcode)
         `TYPE_R: begin
             alu_ctrl = funct3;
@@ -78,6 +86,21 @@ always_comb begin
             op1_sel = `OP1_IMU;
             op2_sel = `OP2_PC;
             rd_en = 1;
+        end
+        `SYSTEM: begin
+            if (funct3 == 3'b000) begin
+                // 特权指令
+                if (inst[31:20] == 12'h000) begin
+                    is_ecall = 1;
+                end else if (inst[31:20] == 12'h302) begin
+                    is_mret = 1;
+                end
+            end else begin
+                // CSR 读写指令 (CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI)
+                csr_we = 1;
+                rd_en = 1;
+                wb_sel = `WB_CSR; // 将 CSR 读出的数据写回通用寄存器 rd
+            end
         end
         default: inst_valid = 0;
     endcase

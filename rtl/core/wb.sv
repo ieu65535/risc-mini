@@ -5,6 +5,8 @@ module wb (
     input  logic [31:0] alu_dout,
     input  logic [31:0] pc,
     input  logic [31:0] mem_data,
+    input  logic [31:0] csr_rdata,
+
     output logic [31:0] dout
 );
 
@@ -13,7 +15,7 @@ always @(*) begin
         `WB_ALU: dout = alu_dout;
         `WB_MEM: dout = mem_data;
         `WB_PC4: dout = pc + 4;
-        `WB_CSR: dout = 0;
+        `WB_CSR: dout = csr_rdata;
     endcase
 end
 

@@ -48,7 +48,7 @@
 `define EBREAK 32'h00100073
 
 // CSR inst
-`define INST_CSR    7'b1110011
+`define SYSTEM    7'b1110011
 `define INST_CSRRW  3'b001
 `define INST_CSRRS  3'b010
 `define INST_CSRRC  3'b011
@@ -65,3 +65,5 @@
 `define CSR_MIE     12'h304
 `define CSR_MSTATUS 12'h300
 `define CSR_MSCRATCH 12'h340
+
+`define CSR_MHARTID 12'hf14

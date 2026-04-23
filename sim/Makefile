@@ -21,6 +21,7 @@ RTLS =  $(TB_MOUDLE)                     \
         ../rtl/core/pipeline.sv          \
         ../rtl/core/ex.sv                \
         ../rtl/core/wb.sv                \
+        ../rtl/core/csr_file.sv          \
         ../rtl/peripherals/bus.sv        \
         ../rtl/peripherals/flash.sv      \
         ../rtl/peripherals/ram.sv        \
