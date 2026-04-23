@@ -24,7 +24,7 @@ CFLAGS  = -Wall -Os -ffunction-sections -fdata-sections
 CFLAGS += -march=$(ARCH) -mabi=$(ABI) -mcmodel=$(CMODEL)
 ASFLAGS = -march=$(ARCH) -mabi=$(ABI)
 
-LDFLAGS += --specs=picolibc.specs -T../sample.ld --printf=i
+LDFLAGS += --specs=picolibc.specs -T../sample.ld --printf=m
 LDFLAGS += -march=$(ARCH) -mabi=$(ABI) -mcmodel=$(CMODEL)
 
 LDLIBS  = $(LIBS)

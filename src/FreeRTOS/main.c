@@ -65,7 +65,7 @@
  * If mainCREATE_SIMPLE_BLINKY_DEMO_ONLY is not 1 then the comprehensive test and
  * demo application will be built.  The comprehensive test and demo application is
  * implemented and described in main_full.c. */
-#define mainCREATE_SIMPLE_BLINKY_DEMO_ONLY    0
+#define mainCREATE_SIMPLE_BLINKY_DEMO_ONLY    1
 
 /* Set to 1 to use direct mode and set to 0 to use vectored mode.
  * VECTOR MODE=Direct --> all traps into machine mode cause the pc to be set to the
@@ -84,6 +84,12 @@
 #define UART0_CTRL                            ( *( ( ( volatile uint32_t * ) ( UART0_ADDRESS + 8UL ) ) ) )
 #define UART0_BAUDDIV                         ( *( ( ( volatile uint32_t * ) ( UART0_ADDRESS + 16UL ) ) ) )
 #define TX_BUFFER_MASK                        ( 1UL )
+
+/* Registers used to initialise the PLIC. */
+#define mainPLIC_PENDING_0                    ( *( ( volatile uint32_t * ) 0x0C001000UL ) )
+#define mainPLIC_PENDING_1                    ( *( ( volatile uint32_t * ) 0x0C001004UL ) )
+#define mainPLIC_ENABLE_0                     ( *( ( volatile uint32_t * ) 0x0C002000UL ) )
+#define mainPLIC_ENABLE_1                     ( *( ( volatile uint32_t * ) 0x0C002004UL ) )
 
 extern void freertos_risc_v_trap_handler( void );
 extern void freertos_vector_table( void );
@@ -294,6 +300,30 @@ void vApplicationGetTimerTaskMemory( StaticTask_t ** ppxTimerTaskTCBBuffer,
     *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
 
+/*-----------------------------------------------------------*/
+
+int __write( int iFile,
+             char * pcString,
+             int iStringLength )
+{
+    int iNextChar;
+
+    /* Avoid compiler warnings about unused parameters. */
+    ( void ) iFile;
+
+    /* Output the formatted string to the UART. */
+    for( iNextChar = 0; iNextChar < iStringLength; iNextChar++ )
+    {
+        while( ( UART0_STATE & TX_BUFFER_MASK ) != 0 )
+        {
+        }
+
+        UART0_DATA = *pcString;
+        pcString++;
+    }
+
+    return iStringLength;
+}
 /*-----------------------------------------------------------*/
 
 void * malloc( size_t size )
