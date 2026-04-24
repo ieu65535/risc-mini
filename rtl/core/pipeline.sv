@@ -54,6 +54,9 @@ logic [3:0] mem_mask;
 logic       rd_en;
 logic [1:0] wb_sel;
 logic [1:0] pc_sel;
+logic      csr_we;
+logic      is_ecall;
+logic      is_mret;
 
 decoder u_decoder(
     .inst       (inst    ),

@@ -5,9 +5,9 @@ ifndef ICARUS
 endif
 
 TB_MOUDLE = tb_soc.sv
-# TB_MOUDLE = tb_control.sv
-# TB_MOUDLE = tb_dhazards.sv
-# TB_MOUDLE = tb_pipeline.sv
+#TB_MOUDLE = tb_control.sv
+#TB_MOUDLE = tb_dhazards.sv
+#TB_MOUDLE = tb_pipeline.sv
 
 RTLS =  $(TB_MOUDLE)                     \
         ../rtl/soc.sv                    \
