@@ -187,7 +187,7 @@ module tb_control();
     // 生成波形
     initial begin
         $dumpfile("tb_control.vcd");
-        $dumpvars(0, tb_control);
+        $dumpvars(0, tb_control.dut.u_pc_reg);
     end
 
 endmodule

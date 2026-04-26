@@ -1,8 +1,8 @@
 include config.mk
 
 # Add your application here:
-APPLICATION = FreeRTOS
-# APPLICATION = hello
+# APPLICATION = FreeRTOS
+APPLICATION = hello
 
 PROJ = risc-mini
 

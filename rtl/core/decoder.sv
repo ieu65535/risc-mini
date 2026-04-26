@@ -21,8 +21,10 @@ module decoder (
 wire [6:0] opcode = inst[6:0];
 wire [2:0] funct3 = inst[14:12];
 wire     funct7_5 = inst[30];
+wire [11:0] csr_addr = inst[31:20];
 
-always @(*) begin
+
+always_comb begin
     inst_valid = 1;
     op1_sel = `OP1_RS1;
     op2_sel = `OP2_RS2;
@@ -88,11 +90,12 @@ always @(*) begin
             rd_en = 1;
         end
         `SYSTEM: begin
+            
             if (funct3 == 3'b000) begin
                 // 特权指令
-                if (inst[31:20] == 12'h000) begin
+                if (csr_addr == 12'h000) begin
                     is_ecall = 1;
-                end else if (inst[31:20] == 12'h302) begin
+                end else if (csr_addr == 12'h302) begin
                     is_mret = 1;
                 end
             end else begin
@@ -100,6 +103,7 @@ always @(*) begin
                 csr_we = 1;
                 rd_en = 1;
                 wb_sel = `WB_CSR; // 将 CSR 读出的数据写回通用寄存器 rd
+                
             end
         end
         default: inst_valid = 0;
