@@ -3,7 +3,7 @@
 
 module csr_file(
     input  logic        clk,
-    input  logic        rst_n,
+    input  logic        rst,
 
     // 译码与执行阶段的读写端口 (对应 CSRRW, CSRRS, CSRRC 等指令)
     input  logic        csr_we,
@@ -53,8 +53,8 @@ module csr_file(
     end
 
     // 写 CSR 以及硬件更新逻辑 (时序逻辑)
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
             mstatus  <= 32'b0;
             mtvec    <= 32'b0;
             mepc     <= 32'b0;

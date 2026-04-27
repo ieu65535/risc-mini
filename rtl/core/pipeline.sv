@@ -9,12 +9,17 @@ module pipeline(
     input  logic [31:0] mem_dout,
     output logic [31:0] mem_din,
     output logic [31:0] mem_addr,
-    output logic [ 3:0] mem_we
+    output logic [ 3:0] mem_we,
+
+    input  logic timer_int
 );
 
 logic        stall;
 logic        pc_mis;
 logic [31:0] target_pc;
+logic        trap_valid;
+logic        mret_valid;
+logic [31:0] trap_cause;
 
 ctrl u_ctrl(
     .rs1_addr   (rs1_addr   ),
@@ -27,7 +32,18 @@ ctrl u_ctrl(
     .pc_ex      (pc_ex      ),
     .stall      (stall      ),
     .pc_mis     (pc_mis     ),
-    .target_pc  (target_pc  )
+    .target_pc  (target_pc  ),
+
+    .is_ecall_ex(is_ecall_ex),
+    .is_mret_ex (is_mret_ex ),
+    .csr_mtvec  (csr_mtvec  ),
+    .csr_mepc   (csr_mepc   ),
+    .csr_mstatus_mie(csr_mstatus_mie),
+    .timer_int  (timer_int),  
+    
+    .trap_valid (trap_valid ),
+    .mret_valid (mret_valid ),
+    .trap_cause (trap_cause )
 );
 
 logic [31:0] pc;
@@ -129,7 +145,7 @@ logic is_mret_ex;
 
 csr_file u_csr_file(
     .clk             (clk),
-    .rst_n           (~rst),  // 注意你的 rst 是高有效，csr_file 里用的是低有效
+    .rst             (rst),  
     
     // EX 阶段进行 CSR 读写
     .csr_we          (csr_we_ex),
@@ -139,10 +155,10 @@ csr_file u_csr_file(
     .csr_rdata       (csr_rdata_ex),
     
     // 异常/中断相关 (目前先接 0，第二阶段再处理)
-    .trap_valid      (1'b0), 
-    .mret_valid      (1'b0),
-    .trap_pc         (32'h0),
-    .trap_cause      (32'h0),
+    .trap_valid      (trap_valid), 
+    .mret_valid      (mret_valid),
+    .trap_pc         (pc_ex),      // 当前触发异常的指令 PC
+    .trap_cause      (trap_cause),
     
     // 直通输出
     .csr_mepc_out    (csr_mepc),
