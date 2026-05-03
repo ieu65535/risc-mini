@@ -12,10 +12,17 @@ int uart_putc(char c, struct __file *stream)
     return 0;
 }
 
-FILE __stdio = FDEV_SETUP_STREAM(uart_putc,
-            NULL,
-            NULL,
-            _FDEV_SETUP_WRITE);
+int uart_getc(FILE *stream)
+{
+    while (!(USR & (1 << USR_RXNE)));
+    
+    return UDR; 
+}
+
+FILE __stdio = FDEV_SETUP_STREAM(uart_putc,          
+                                 uart_getc,          
+                                 NULL,               
+                                 _FDEV_SETUP_RW);    
 
 FILE *const stdin = &__stdio;
 __strong_reference(stdin, stdout);

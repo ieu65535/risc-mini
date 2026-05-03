@@ -8,7 +8,7 @@ module flash(
     output reg [31:0] flash_dout
 );
 
-localparam WIDTH = 10;
+localparam WIDTH = 12;
 reg [31:0] flash [0:(1<<WIDTH)-1];
 
 always @(posedge clk) begin

@@ -27,6 +27,7 @@
 
 void uart_init(int baudrate);
 int uart_putc(char c, struct __file *stream);
+int uart_getc(FILE *stream);
 
 // IO
 
