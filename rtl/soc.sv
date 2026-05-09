@@ -5,8 +5,10 @@ module soc(
 
     input  logic rxd,
     output logic txd,
-    output logic [7:0] led
+    output logic [1:0] led
 );
+logic [31:0] pout;
+assign led = pout[1:0];
 
 logic rst;
 reset_sync u_reset_sync(
@@ -33,7 +35,7 @@ bus u_bus(
     .mem_dout  (mem_dout  ),
     .txd       (txd       ),
     .rxd       (rxd       ),
-    .led       (led     )
+    .pout      (pout      )
 );
 
 pipeline u_cpu(

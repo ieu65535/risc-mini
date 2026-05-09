@@ -6,7 +6,7 @@ module tb_soc;
 
     reg sys_clk ;
     reg rst_n ;
-    wire [7:0] led ;
+    wire [1:0] led ;
 
     initial begin
         sys_clk = 1'b0 ;

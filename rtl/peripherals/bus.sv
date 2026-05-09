@@ -1,17 +1,17 @@
 module bus(
-    input clk,
-    input rst,
-    input [31:0] inst_addr,//指令地址输入
-    output [31:0] inst_dout,//指令输出
+    input  logic        clk,
+    input  logic        rst,
+    input  logic [31:0] inst_addr,//指令地址输入
+    output logic [31:0] inst_dout,//指令输出
     
-    input [31:0] mem_addr,//内存地址输入
-    input [31:0] mem_din,   //数据输入
-    input [ 3:0] mem_we,//数据写入使能
-    output reg [31:0] mem_dout,//数据输出
+    input  logic [31:0] mem_addr,//内存地址输入
+    input  logic [31:0] mem_din,   //数据输入
+    input  logic [ 3:0] mem_we,//数据写入使能
+    output logic [31:0] mem_dout,//数据输出
 
-    input rxd,
-    output txd,
-    output logic [7:0] led
+    input  logic        rxd,
+    output logic        txd,
+    output logic [31:0] pout
 );
 
 localparam WIDTH = 10;//地址索引位数
@@ -59,7 +59,7 @@ io u_io(
     .dout (io_dout ),
     .txd  (txd),
     .rxd  (rxd),
-    .led  (led)
+    .pout (pout)
 );
 
 // multiplexer

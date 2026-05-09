@@ -1,14 +1,14 @@
 module io (
-    input clk,
-    input rst,
-    input [31:0] addr,  //地址总线
-    input [31:0] din,
-    input wr,           //写使能
-    output reg [31:0] dout,
+    input  logic        clk,
+    input  logic        rst,
+    input  logic [31:0] addr,  //地址总线
+    input  logic [31:0] din,
+    input  logic        wr,    //写使能
+    output logic [31:0] dout,
 
-    input rxd,
-    output txd,
-    output logic [7:0] led
+    input  logic        rxd,
+    output logic        txd,
+    output logic [31:0] pout
 );
 
 // uart registers
@@ -24,7 +24,7 @@ localparam TC   = 6;  // 发送完成标志位
 
 // gpio registers
 logic [31:0] PORTA;
-assign led = PORTA[7:0];
+assign pout = PORTA;
 
 // uart
 wire [7:0] RDR; // 串口接收数据
