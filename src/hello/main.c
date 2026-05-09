@@ -1,28 +1,76 @@
 #include "mini_io.h"
 
-void sleep(int ms) {
+// 正弦表点数
+#define TABLE_SIZE  256
+// 采样频率 1000 Hz
+#define SAMPLE_RATE 1000
+// 每次采样的延时 (ms)
+#define SAMPLE_DELAY_MS 1
+
+// 256 点正弦表，范围 0～255（中心 128）
+const unsigned char sin_table[TABLE_SIZE] = {
+    128,131,134,137,140,143,146,149,152,155,158,161,164,167,170,173,
+    176,179,182,185,188,190,193,196,198,201,203,206,208,211,213,215,
+    218,220,222,224,226,228,230,232,233,235,237,238,240,241,243,244,
+    245,246,247,248,249,250,251,251,252,252,253,253,253,253,253,253,
+    253,252,252,251,251,250,249,248,247,246,245,244,243,241,240,238,
+    237,235,233,232,230,228,226,224,222,220,218,215,213,211,208,206,
+    203,201,198,196,193,190,188,185,182,179,176,173,170,167,164,161,
+    158,155,152,149,146,143,140,137,134,131,128,125,122,119,116,113,
+    110,107,104,101, 98, 95, 92, 89, 86, 83, 80, 77, 74, 71, 68, 65,
+     62, 59, 56, 53, 50, 47, 45, 42, 40, 37, 35, 33, 30, 28, 26, 24,
+     22, 20, 18, 16, 14, 12, 10,  9,  7,  5,  4,  2,  1,  0,  0,  0,
+      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  4,  5,  7,
+      9, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 33, 35, 37, 40,
+     42, 45, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83, 86,
+     89, 92, 95, 98,101,104,107,110,113,116,119,122,125,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128
+};
+
+void sleep_ms(int ms) {
     volatile int i;
-    for(i = 0; i < ms * 5555; i++);
-    printf("Slept for %d cycles\n", i);
+    for (i = 0; i < ms * 5555; i++);
 }
 
-// int main() {
-//     uart_init(115200);
-//     while(1){
-//         printf("Hello, World!\n");
-//         PORT_OUT = 0x01;
-//         sleep(500);
-//         PORT_OUT = 0x02;
-//         sleep(500);
-//     }
-//     return 0;
-// }
-
 int main() {
-    char buf[100];
+    int freq;                   // 输入频率 (Hz)
+    unsigned int phase = 0;     // 相位累加器 (16 位，16.16 定点)
+    unsigned int phase_step;    // 每步相位增量
+
     uart_init(115200);
-    printf("Hello, World!\n");
-    scanf("%99s", buf);
-    printf("You entered: %s\n", buf);
+
+    while (1) {
+        // 提示并读取频率
+        printf("Enter frequency (Hz): ");
+        scanf("%d", &freq);
+
+        if (freq <= 0 || freq > SAMPLE_RATE / 2) {
+            printf("Frequency must be 1 ~ %d Hz\n", SAMPLE_RATE / 2);
+            continue;
+        }
+
+        // 计算相位增量 (相位累加器精度 16 位)
+        // phase_step = (freq * 65536) / SAMPLE_RATE
+        phase_step = (unsigned int)(((unsigned long)freq << 16) / SAMPLE_RATE);
+        phase = 0;
+
+        printf("Outputting %d Hz sine wave...\n", freq);
+
+        // 持续输出正弦波，直到输入新频率（可复位）
+        while (1) {
+            // 从表中取当前相位对应的值
+            unsigned char index = (unsigned char)(phase >> 8); // 高 8 位作为表索引
+            unsigned char value = sin_table[index];
+
+            // 通过串口打印当前采样值（整数）
+            printf("%d\n", value);
+
+            // 相位累加
+            phase += phase_step;
+
+            // 延时，控制采样率
+            sleep_ms(SAMPLE_DELAY_MS);
+        }
+    }
     return 0;
 }
