@@ -1,0 +1,19 @@
+# Keep text files identical in Windows and Linux/Dev Container checkouts.
+* text=auto eol=lf
+
+# Windows command scripts conventionally use CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never apply text or line-ending conversion to binary artifacts.
+*.bin -text
+*.doc -text
+*.docx -text
+*.elf -text
+*.gif -text
+*.jpeg -text
+*.jpg -text
+*.pdf -text
+*.pb -text
+*.png -text
+*.zip -text

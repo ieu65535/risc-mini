@@ -4,12 +4,12 @@ ifndef ICARUS
     VVP = vvp
 endif
 
-# TB_MOUDLE = tb_soc.sv
+TB_MOUDLE = tb_soc.sv
 # TB_MOUDLE = tb_control.sv
 #TB_MOUDLE = tb_dhazards.sv
 #TB_MOUDLE = tb_pipeline.sv
 # TB_MOUDLE = tb_csr.sv
-TB_MOUDLE = tb_interrupt.sv
+#TB_MOUDLE = tb_interrupt.sv
 
 RTLS =  $(TB_MOUDLE)                     \
         ../rtl/soc.sv                    \
