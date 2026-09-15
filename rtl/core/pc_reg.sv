@@ -30,15 +30,14 @@ end
 logic [31:0] next_pc;
 
 always_comb begin
-    if (stall) begin
+    // 重定向必须高于普通暂停，否则 Trap 与 load-use stall 同周期发生时
+    // CSR 会记录 Trap，但 PC 会被锁住并丢失唯一一次 mtvec 跳转。
+    if (pc_mis)
+        next_pc = target_pc;
+    else if (stall)
         next_pc = pc;
-    end
-    else begin
-        if (pc_mis)
-            next_pc = target_pc;
-        else
-            next_pc = pred_pc;
-    end
+    else
+        next_pc = pred_pc;
 end
 
 assign inst_addr = next_pc;

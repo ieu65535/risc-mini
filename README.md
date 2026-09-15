@@ -107,7 +107,7 @@
 - 条件分支预测失败和 JALR 目标在 EX 阶段通过 `pc_mis/target_pc` 纠正。
 - 数据前递优先级为 EX > MEM > WB，覆盖 ALU、Load、PC+4 和 CSR 写回源。
 - load-use 冒险触发一拍停顿并向 EX 插入 bubble。
-- Trap、MRET 和分支纠正共用 PC 重定向通路。当前 PC 更新优先级是 `stall` 高于重定向；load-use 与中断同周期出现时可能记录 Trap 却没有跳入 `mtvec`。
+- Trap、MRET 和分支纠正共用 PC 重定向通路。PC 重定向现高于普通 `stall`；定向测试覆盖了 load-use 停顿与 Timer Trap 同周期发生的情况。
 
 ## 存储器与 MMIO
 
@@ -278,16 +278,19 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - 初次 Vivado 功能预检中，`tb_control` 与 Icarus 的 JALR 结果不一致；该次 `tb_interrupt` 还因组合取指模型形成零延迟反馈而未正常完成。同步取指修复后，`tb_interrupt` 已在 Icarus 和 Vivado Simulator 2024.2 中一致通过；其余完整功能一致性仍需后续复核。
 - `tb_interrupt` 改为与 `flash.sv` 一致的同步取指，并加入阶段标记和周期看门狗后，Docker/Icarus 完整回归于 2026-09-15 得到 `6 passed, 0 failed`：控制流、数据冒险、基本指令、CSR、SoC hello、ECALL/MRET 和现有 Timer 用例全部通过。
 
-### 2026-09-15 阶段 1：Timer 中断使能门控
+### 2026-09-15 阶段 1：Timer 门控与重定向优先级
 
 - `tb_interrupt` 增加三种组合测试：`mstatus.MIE=0`、`MIE=1/MTIE=0` 和 `MIE=1/MTIE=1`。
 - 修复前第二种组合会错误进入 Timer Trap；修复后只有 `mstatus.MIE` 与 `mie.MTIE` 同时为 1 才接收中断。
-- Docker/Icarus 完整回归保持 `6 passed, 0 failed`，同一中断用例也通过 Vivado Simulator 2024.2 独立编译、展开和行为仿真。这只验证了中断使能门控，尚不代表精确中断、挂起位或板级定时器已经完成。
+- 新增 Timer Trap 与 load-use `stall` 同周期测试。修复前 CSR 会记录 Trap，但 PC 因暂停而丢失 `mtvec` 跳转；现已将重定向优先级提高到 `stall` 之上。
+- Docker/Icarus 完整回归保持 `6 passed, 0 failed`，同一中断用例也通过 Vivado Simulator 2024.2 独立编译、展开和行为仿真。
+- `.vscode/settings.json` 明确让 Icarus lint 从工作区根目录运行，避免把 `rtl/core` 等库路径误解析成 `rtl/rtl/core` 后产生 Unknown module 假报错。
+- 上述结果只验证了中断门控和 PC 重定向优先级，尚不代表精确中断、挂起位或板级定时器已经完成。
 
 尚未验证：
 
 - RV32I/Zicsr 官方一致性测试；
-- 可重复的 Icarus 全量回归；
+- 除中断用例外，Icarus 与 Vivado Simulator 的完整功能一致性；
 - 综合、实现、DRC、CDC、利用率和时序；
 - bitstream 身份与板级 UART；
 - FreeRTOS 启动、tick、上下文切换和长时间运行。

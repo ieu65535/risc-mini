@@ -15,6 +15,10 @@ module tb_interrupt();
     integer      cycle_count = 0;
     integer      timer_trap_count = 0;
     integer      timer_trap_count_before = 0;
+    integer      handler_pc_count = 0;
+    integer      handler_pc_count_before = 0;
+    integer      trap_stall_overlap_count = 0;
+    integer      trap_stall_overlap_count_before = 0;
     
     logic [31:0] inst_mem [0:255];
 
@@ -48,7 +52,7 @@ module tb_interrupt();
         forever #5 clk = ~clk; 
     end
 
-    // 周期级看门狗：正常测试约 84 个周期，超过 200 周期即视为失去进展。
+    // 周期级看门狗：正常测试低于 150 个周期，超过 200 周期即视为失去进展。
     always @(posedge clk) begin
         if (rst) begin
             cycle_count <= 0;
@@ -62,10 +66,18 @@ module tb_interrupt();
     // 记录 CPU 实际接收了多少次机器定时器中断。
     // 只观察 DUT 的中断接收结果，不直接修改 CSR 内部状态。
     always @(posedge clk) begin
-        if (rst)
+        if (rst) begin
             timer_trap_count <= 0;
-        else if (dut.trap_valid && (dut.trap_cause === 32'h80000007))
-            timer_trap_count <= timer_trap_count + 1;
+            handler_pc_count <= 0;
+            trap_stall_overlap_count <= 0;
+        end else begin
+            if (dut.trap_valid && (dut.trap_cause === 32'h80000007))
+                timer_trap_count <= timer_trap_count + 1;
+            if (dut.pc === 32'h00000040)
+                handler_pc_count <= handler_pc_count + 1;
+            if (dut.trap_valid && dut.stall)
+                trap_stall_overlap_count <= trap_stall_overlap_count + 1;
+        end
     end
 
     task automatic pulse_timer;
@@ -220,6 +232,44 @@ module tb_interrupt();
             $display("[PASS] mepc 正确保存被打断的 PC (0x24)");
         else begin
             $display("[FAIL] mepc 现场保存错误, x5=%h", dut.u_reg_file.regs[5]);
+            error_count = error_count + 1;
+        end
+
+        // 【阶段 5】：构造 LW -> ADD load-use 冒险，并在 stall=1 的同一周期触发 Timer。
+        // 如果 PC 更新把 stall 放在 Trap 重定向之前，CSR 虽会记录 Trap，PC 却不会进入 0x40。
+        $display("[TB PHASE] Timer redirect overlaps load-use stall");
+        wait (dut.u_csr_file.mstatus[3] === 1'b1);
+        wait (inst_addr === 32'h00000024);
+        @(negedge clk);
+        inst_mem[9]  = 32'h00002583; // 24: lw   x11, 0(x0)
+        inst_mem[10] = 32'h00b58633; // 28: add  x12, x11, x11 (触发 load-use stall)
+        inst_mem[11] = 32'h00100693; // 2C: addi x13, x0, 1     (继续执行标记)
+        inst_mem[12] = 32'h0000006f; // 30: jal  x0, 0
+
+        wait (dut.stall === 1'b1);
+        handler_pc_count_before = handler_pc_count;
+        trap_stall_overlap_count_before = trap_stall_overlap_count;
+        pulse_timer();
+        repeat(25) @(posedge clk);
+
+        if (trap_stall_overlap_count > trap_stall_overlap_count_before)
+            $display("[PASS] 测试已命中 Timer Trap 与 load-use stall 同周期条件");
+        else begin
+            $display("[FAIL] 测试未能构造 Trap/stall 同周期条件");
+            error_count = error_count + 1;
+        end
+
+        if (handler_pc_count > handler_pc_count_before)
+            $display("[PASS] Trap 重定向未被 stall 阻塞，CPU 进入 0x40");
+        else begin
+            $display("[FAIL] stall 覆盖了 Trap 重定向，CPU 未进入 0x40");
+            error_count = error_count + 1;
+        end
+
+        if (dut.u_reg_file.regs[13] === 32'd1)
+            $display("[PASS] MRET 后流水线继续执行 (x13=1)");
+        else begin
+            $display("[FAIL] MRET 后未继续执行, x13=%0d", dut.u_reg_file.regs[13]);
             error_count = error_count + 1;
         end
 

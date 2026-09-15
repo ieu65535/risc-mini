@@ -4,5 +4,6 @@
         "rtl/core",
         "rtl"
     ],
-    "verilog.linting.iverilog.arguments": "-g2005-sv -y rtl/core -y rtl/peripherals -y rtl -Y .sv"
+    "verilog.linting.iverilog.arguments": "-g2005-sv -y rtl/core -y rtl/peripherals -y rtl -Y .sv",
+    "verilog.linting.iverilog.runAtFileLocation": false
 }
