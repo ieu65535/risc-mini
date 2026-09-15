@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module tb_trap();
+module tb_interrupt();
 
     // ==========================================
     // 1. 信号定义
@@ -10,7 +10,9 @@ module tb_trap();
     logic        timer_int; // 外部定时器中断
     
     logic [31:0] inst_addr;
-    logic [31:0] inst;
+    logic [31:0] inst = 32'h00000013;
+    integer      error_count = 0;
+    integer      cycle_count = 0;
     
     logic [31:0] inst_mem [0:255];
 
@@ -23,13 +25,18 @@ module tb_trap();
         .timer_int  (timer_int),  // <--- 接入外部中断信号
         .inst       (inst),
         .mem_dout   (32'b0), // 不涉及内存读写，直接给默认值
-        .inst_addr  (inst_addr)
+        .inst_addr  (inst_addr),
+        .mem_din    (),
+        .mem_addr   (),
+        .mem_we     ()
     );
 
     // ==========================================
-    // 3. 取指逻辑 (组合逻辑)
+    // 3. 同步取指：与 RTL 中 flash.sv 的一拍返回模型一致
     // ==========================================
-    assign inst = inst_mem[inst_addr[9:2]];
+    always_ff @(posedge clk) begin
+        inst <= inst_mem[inst_addr[9:2]];
+    end
 
     // ==========================================
     // 4. 时钟生成
@@ -39,12 +46,25 @@ module tb_trap();
         forever #5 clk = ~clk; 
     end
 
+    // 周期级看门狗：正常测试约 84 个周期，超过 200 周期即视为失去进展。
+    always @(posedge clk) begin
+        if (rst) begin
+            cycle_count <= 0;
+        end else begin
+            cycle_count <= cycle_count + 1;
+            if (cycle_count >= 200)
+                $fatal(1, "[TB TIMEOUT] tb_interrupt exceeded 200 cycles");
+        end
+    end
+
     // ==========================================
     // 5. 组装测试用的微型操作系统汇编代码
     // ==========================================
     initial begin
+`ifdef DUMP_WAVES
         $dumpfile("tb_trap.vcd");
-        $dumpvars(0, tb_trap);
+        $dumpvars(0, tb_interrupt.dut);
+`endif
 
         for(int i=0; i<256; i++) inst_mem[i] = 32'h00000013; // 默认 NOP
         
@@ -86,6 +106,7 @@ module tb_trap();
         timer_int = 0;
         #20;
         rst = 0;
+        $display("[TB PHASE] ECALL/MRET test started");
 
         // 【阶段 1】：让 CPU 跑 50 个周期，足够它执行完 ECALL 并 MRET 返回
         repeat(50) @(posedge clk);
@@ -97,16 +118,21 @@ module tb_trap();
 
         if (dut.u_reg_file.regs[3] === 32'd99) 
             $display("[PASS] 流水线 Flush 与 ECALL 返回正常 (x3=99)");
-        else 
+        else begin
             $display("[FAIL] ECALL 处理错误！期望 x3=99, 实际=%0d", dut.u_reg_file.regs[3]);
+            error_count = error_count + 1;
+        end
 
         if (dut.u_reg_file.regs[4] === 32'd11)
             $display("[PASS] mcause 正确捕获 ECALL 异常码 11");
-        else 
+        else begin
             $display("[FAIL] mcause 未正确捕获, 实际=%0d", dut.u_reg_file.regs[4]);
+            error_count = error_count + 1;
+        end
 
         // 【阶段 2】：模拟外部定时器中断 (拉高 timer_int)
         // 此时 CPU 在 0x18 死循环，拉高信号会将其强制拖入中断
+        $display("[TB PHASE] Timer interrupt test started");
         @(posedge clk);
         timer_int = 1; 
         
@@ -120,17 +146,26 @@ module tb_trap();
         // 检查 Timer 中断是否被捕获
         if (dut.u_reg_file.regs[4] === 32'h80000007)
             $display("[PASS] mcause 正确捕获外部 Timer 中断 (0x80000007)");
-        else 
+        else begin
             $display("[FAIL] Timer 中断捕获失败, x4=%h", dut.u_reg_file.regs[4]);
+            error_count = error_count + 1;
+        end
 
         // 检查 Timer 中断保存的 mepc 是否是死循环的地址 (0x18)
         if (dut.u_reg_file.regs[5] === 32'h00000018)
             $display("[PASS] mepc 正确保存被打断的 PC (0x18)");
-        else 
+        else begin
             $display("[FAIL] mepc 现场保存错误, x5=%h", dut.u_reg_file.regs[5]);
+            error_count = error_count + 1;
+        end
 
         $display("========================================\n");
-        $finish;
+        if (error_count == 0) begin
+            $display("[TB PASS] tb_interrupt");
+            $finish;
+        end else begin
+            $fatal(1, "[TB FAIL] tb_interrupt: %0d checks failed", error_count);
+        end
     end
 
 endmodule

@@ -99,9 +99,11 @@ uart_rx u_uart_rx(
 );
 
 `ifdef SIMULATION
+`ifdef DUMP_WAVES
 initial begin
 	$dumpvars(1, wr, addr);
 end
+`endif
 `endif
 
 endmodule

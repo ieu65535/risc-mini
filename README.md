@@ -11,7 +11,7 @@
 - 主线核心是 RV32、单发射、顺序执行设计，包含取指/译码前端、EX、MEM、WB 四个逻辑处理阶段和三组级间寄存器。
 - RTL 按设计意图覆盖 37 条常用 RV32I 指令，并加入六条 Zicsr 指令、ECALL、MRET 和一个实验性的机器定时器中断入口。
 - UART、片上 ROM 和片上 RAM 已接入 SoC；GPIO 只有未使用的内部寄存器占位，定时器外设尚不存在。
-- `timer_int` 只存在于 CPU 核心端口，`soc` 没有连接它。当前 SoC 因而没有可用的定时器中断源。
+- CPU 核心保留 `timer_int` 端口；当前 `soc` 将其明确固定为 0，避免悬空值进入控制逻辑。SoC 仍没有可用的定时器中断源。
 - FreeRTOS 目录是混合版本、混合平台的参考移植素材：内核文件标记为 FreeRTOS Kernel V11.1.0，而配置、demo 与平台文件多为 V202212.00，并混有 QEMU `virt` 和另一套 SoC 的外设假设；尚未完成针对当前 SoC 的移植。
 
 ## 功能状态
@@ -21,7 +21,7 @@
 | RV32I 整数通路 | RTL 已实现，回归未闭环 | 未做 riscv-arch-test；译码没有严格拒绝全部非法 `funct3/funct7` 组合 |
 | Zicsr | 实验性实现 | 六条 CSR 读改写指令有数据通路，但 CSR 权限、只读属性和非法访问异常未实现 |
 | ECALL / MRET | 实验性实现 | 只有 M 模式 ECALL cause 11；精确 Trap 语义尚未建立 |
-| 机器定时器中断 | 核心内有逻辑，SoC 未接通 | `timer_int` 悬空；没有同步器、CLINT/mtime；`mie.MTIE` 不参与门控 |
+| 机器定时器中断 | 核心内有实验性逻辑，SoC 暂时禁用 | `timer_int` 在 SoC 中固定为 0；没有同步器、CLINT/mtime；`mie.MTIE` 不参与门控 |
 | 分支与冒险 | RTL 已实现 | Branch/JAL 静态预测跳转，JALR 在 EX 纠正；有 EX/MEM/WB 前递和 load-use 停顿 |
 | UART | RTL 与 hello 软件已接入 | 尚无自检 UART testbench，也没有本次板级串口记录 |
 | ROM / RAM | RTL 已实现 | 物理容量各 4 KiB，与镜像生成和链接脚本不一致 |
@@ -140,14 +140,14 @@ UART 为 8N1，无 FIFO。`rxd` 在 `uart_rx` 内经过两级同步。当前 `RX
 | --- | ---: |
 | RTL 程序 ROM | 4 KiB |
 | RTL 数据 RAM | 4 KiB |
-| `src/Makefile` 生成的 `.mem` | 16 KiB / 4096 个 32 位字 |
+| `src/Makefile` 生成的 `.mem` | 4 KiB / 1024 个 32 位字 |
 | `src/sample.ld` 声明的 ROM | 128 KiB |
 | `src/sample.ld` 声明的 RAM | 128 KiB |
 | 未被当前构建选用的 `src/link.ld` ROM | 512 KiB |
 | 未被当前构建选用的 `src/link.ld` RAM | 1 MiB |
 | FreeRTOS RV32 heap 配置 | 80 KiB |
 
-当前提交中的 `src/risc-mini.coe` 含 209 个 32 位字（836 B）；`src/risc-mini.mem` 的前 209 字与它一致，随后补零到 4096 字（16 KiB），并包含 `Hello, World!`。这份 hello 的有效载荷能装入 4 KiB ROM，但生成容器仍比实际 `flash` 大四倍，RTL 只会容纳前 1024 个字。继续开发前必须统一 RTL 深度、链接脚本和镜像生成规则。
+当前 hello 的有效内容能装入 4 KiB ROM；`src/Makefile` 会将 `.mem` 补零到与 `flash` 一致的 1024 个字，并在二进制超过 4 KiB 时立即失败，避免静默截断。链接脚本仍声明 128 KiB ROM/RAM，后续扩大物理存储器或定稿地址空间时还需要统一。
 
 ## 时钟、复位与 FPGA 约束
 
@@ -202,7 +202,7 @@ make clean
 
 ### 选择 testbench
 
-`sim/Makefile` 中的变量名保留了原有拼写 `TB_MOUDLE`，当前默认值是 `tb_interrupt.sv`。同一个输出文件会被不同 testbench 复用，切换时建议用 `-B` 强制重建：
+`sim/Makefile` 中的变量名保留了原有拼写 `TB_MOUDLE`，当前默认值是 `tb_soc.sv`。Makefile 会根据文件名显式选择同名仿真顶层；切换 testbench 时建议用 `-B` 强制重建：
 
 ```bash
 make -B -C sim TB_MOUDLE=tb_pipeline.sv
@@ -212,6 +212,21 @@ make -B -C sim TB_MOUDLE=tb_csr.sv
 make -B -C sim TB_MOUDLE=tb_interrupt.sv
 make -B -C sim TB_MOUDLE=tb_soc.sv
 ```
+
+日常回归使用以下入口：
+
+```bash
+# 指令、冒险、控制流、CSR 和 SoC smoke test
+make regression
+
+# 在上述测试之外加入当前尚未闭环的异常/中断测试
+make regression-all
+
+# 只在调试单项测试时生成波形
+make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
+```
+
+每个 CPU testbench 只有在全部检查通过后才输出唯一的 `[TB PASS]` 标记；失败会累计并调用 `$fatal`。回归脚本还会检查进程状态、失败文本、超时、完成标记以及 SoC 的 `Hello, World!` UART 输出。标准回归保存到 `sim/regression.log`，含中断测试的完整回归保存到 `sim/regression-all.log`，便于宿主机直接检查。
 
 ## FreeRTOS 目录的真实状态
 
@@ -223,7 +238,7 @@ make -B -C sim TB_MOUDLE=tb_soc.sv
 - 示例代码使用 `0x1000_0000` 的 NS16550，另一些 UART 宏使用 `0x4000_4000`，当前 UART 实际位于 `0x4000_0000` 且寄存器布局不同；
 - `main.c` 默认把 `mtvec` 配为 vectored 模式，当前核心只把 `mtvec` 原值当作 direct 入口；
 - 80 KiB heap 和 128 KiB 链接 RAM 都超过实际 4 KiB RAM；
-- SoC 未连接 `timer_int`，核心也没有 `mie.MTIE` 门控和精确中断提交。
+- SoC 当前将 `timer_int` 固定为 0，核心仍没有 `mie.MTIE` 门控和精确中断提交。
 - FreeRTOS Makefile 没有编译仓内 `start.S`，启动和 `.data/.bss` 初始化依赖 picolibc CRT；它还会无条件编译 full-demo 文件集合，不能把默认 blinky 选择等同于精简镜像。
 - FreeRTOS 应用没有调用当前 `mini_libc` 的 `uart_init`；UART 分频寄存器复位为 0，即使 stdout 映射改对，也仍需显式设置板级波特率。
 
@@ -253,6 +268,15 @@ make -B -C sim TB_MOUDLE=tb_soc.sv
 - 当前 testbench 主要通过打印 `[PASS]/[FAIL]` 判断；部分任务在打印失败后仍无条件打印 `[PASS]`，多数失败不会令仿真返回非零状态。自动化脚本不能只看进程退出码。
 
 仓库 Makefile 的目标仿真器是 Icarus Verilog。本次 Windows 环境没有 `iverilog` 和 RISC-V 交叉工具链，Docker 引擎也未运行，因此尚未补跑仓库原生 Make 回归。Vivado 结果不能替代 Icarus 结果，但已经足以说明当前基线不是绿色回归状态。
+
+### 2026-09-15 仿真基线框架更新
+
+- 六个 testbench 的模块名已与文件名统一，Icarus 编译时显式指定唯一顶层。
+- 非中断测试和 SoC 将 `timer_int` 明确固定为 0；SoC 的 `rxd` 固定为空闲高电平。
+- testbench 已加入统一的错误计数、最终通过标记和失败退出；默认关闭波形转储。
+- Vivado Simulator 2024.2 已无警告编译全部 SystemVerilog，并成功静态展开六个 testbench。
+- 初次 Vivado 功能预检中，`tb_control` 与 Icarus 的 JALR 结果不一致；该次 `tb_interrupt` 还因组合取指模型形成零延迟反馈而未正常完成。同步取指修复后，`tb_interrupt` 已在 Icarus 和 Vivado Simulator 2024.2 中一致通过；其余完整功能一致性仍需后续复核。
+- `tb_interrupt` 改为与 `flash.sv` 一致的同步取指，并加入阶段标记和周期看门狗后，Docker/Icarus 完整回归于 2026-09-15 得到 `6 passed, 0 failed`：控制流、数据冒险、基本指令、CSR、SoC hello、ECALL/MRET 和现有 Timer 用例全部通过。
 
 尚未验证：
 

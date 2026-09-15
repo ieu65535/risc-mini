@@ -11,11 +11,12 @@ module tb_csr();
     logic [31:0] inst_addr;
     logic [31:0] inst;
     
-    // 假设你有内存接口，这里给默认值0，因为测试不涉及读写内存
-    logic [31:0] mem_addr = 0;
+    // 测试不访问数据存储器：读数据固定为 0，其他信号由 CPU 驱动。
+    logic [31:0] mem_addr;
     logic [31:0] mem_dout = 0;
     logic [31:0] mem_din;
     logic [3:0]  mem_we;
+    integer      error_count = 0;
     
     // 指令存储器
     logic [31:0] inst_mem [0:255];
@@ -27,7 +28,12 @@ module tb_csr();
         .clk        (clk),
         .rst        (rst),
         .inst       (inst),
-        .inst_addr  (inst_addr)
+        .inst_addr  (inst_addr),
+        .mem_dout   (mem_dout),
+        .mem_din    (mem_din),
+        .mem_addr   (mem_addr),
+        .mem_we     (mem_we),
+        .timer_int  (1'b0)
     );
 
     // ==========================================
@@ -47,8 +53,10 @@ module tb_csr();
     // 5. 测试主流程
     // ==========================================
     initial begin
+`ifdef DUMP_WAVES
         $dumpfile("tb_csr.vcd");
         $dumpvars(0, tb_csr);
+`endif
 
         // 初始化指令内存为 NOP (addi x0, x0, 0)
         for(int i=0; i<256; i++) inst_mem[i] = 32'h00000013; 
@@ -110,35 +118,40 @@ module tb_csr();
 
         // --- 基础测试检查 ---
         if (dut.u_reg_file.regs[7] === 32'h123) $display("[PASS] 基础读写: x7 = 0x123");
-        else $display("[FAIL] 基础读写: x7 = 0x%h, 期望 0x123", dut.u_reg_file.regs[7]);
+        else begin $display("[FAIL] 基础读写: x7 = 0x%h, 期望 0x123", dut.u_reg_file.regs[7]); error_count = error_count + 1; end
 
         if (dut.u_reg_file.regs[9] === 32'h8) $display("[PASS] CSRRS(置位): x9 = 0x8");
-        else $display("[FAIL] CSRRS(置位): x9 = 0x%h, 期望 0x8", dut.u_reg_file.regs[9]);
+        else begin $display("[FAIL] CSRRS(置位): x9 = 0x%h, 期望 0x8", dut.u_reg_file.regs[9]); error_count = error_count + 1; end
 
         if (dut.u_reg_file.regs[10] === 32'h0) $display("[PASS] CSRRC(清零): x10 = 0x0");
-        else $display("[FAIL] CSRRC(清零): x10 = 0x%h, 期望 0x0", dut.u_reg_file.regs[10]);
+        else begin $display("[FAIL] CSRRC(清零): x10 = 0x%h, 期望 0x0", dut.u_reg_file.regs[10]); error_count = error_count + 1; end
 
         // --- 进阶测试1检查 ---
         if (dut.u_reg_file.regs[12] === 32'h345) $display("[PASS] ALU->CSR前递: x12 = 0x345");
-        else $display("[FAIL] ALU->CSR前递: x12 = 0x%h, 期望 0x345", dut.u_reg_file.regs[12]);
+        else begin $display("[FAIL] ALU->CSR前递: x12 = 0x%h, 期望 0x345", dut.u_reg_file.regs[12]); error_count = error_count + 1; end
 
         // --- 进阶测试2检查 ---
         if (dut.u_reg_file.regs[13] === 32'h1F) $display("[PASS] CSRRWI(立即数写): x13 = 31");
-        else $display("[FAIL] CSRRWI(立即数写): x13 = 0x%h, 期望 31", dut.u_reg_file.regs[13]);
+        else begin $display("[FAIL] CSRRWI(立即数写): x13 = 0x%h, 期望 31", dut.u_reg_file.regs[13]); error_count = error_count + 1; end
 
         if (dut.u_reg_file.regs[14] === 32'hF) $display("[PASS] 立即数置位/清零: x14 = 15");
-        else $display("[FAIL] 立即数置位/清零: x14 = 0x%h, 期望 15", dut.u_reg_file.regs[14]);
+        else begin $display("[FAIL] 立即数置位/清零: x14 = 0x%h, 期望 15", dut.u_reg_file.regs[14]); error_count = error_count + 1; end
 
         // --- 进阶测试3检查 ---
         if (dut.u_reg_file.regs[16] === 32'h10) $display("[PASS] CSR->ALU前递: x16 = 16");
-        else $display("[FAIL] CSR->ALU前递: x16 = 0x%h, 期望 16", dut.u_reg_file.regs[16]);
+        else begin $display("[FAIL] CSR->ALU前递: x16 = 0x%h, 期望 16", dut.u_reg_file.regs[16]); error_count = error_count + 1; end
 
         // --- 边界测试4检查 ---
         if (dut.u_reg_file.regs[17] === 32'h0) $display("[PASS] x0寄存器保护: x17 = 0");
-        else $display("[FAIL] x0寄存器保护: x17 = 0x%h, 期望 0", dut.u_reg_file.regs[17]);
+        else begin $display("[FAIL] x0寄存器保护: x17 = 0x%h, 期望 0", dut.u_reg_file.regs[17]); error_count = error_count + 1; end
 
         $display("========================================\n");
-        $finish;
+        if (error_count == 0) begin
+            $display("[TB PASS] tb_csr");
+            $finish;
+        end else begin
+            $fatal(1, "[TB FAIL] tb_csr: %0d checks failed", error_count);
+        end
     end
 
 endmodule

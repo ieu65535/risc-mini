@@ -23,7 +23,9 @@ module tb_soc;
         $display("reset (startup)");
         rst_n = 1'b0;
         # 1e3    rst_n = 1;
-        # 2e6    $finish();
+        # 2e6;
+        $display("\n[TB COMPLETE] tb_soc");
+        $finish();
     end
 
     wire txd;
@@ -31,6 +33,7 @@ module tb_soc;
     soc u_soc(
         .clk   (sys_clk   ),
         .rst_n (rst_n ),
+        .rxd   (1'b1  ),
         .txd   (txd   )
     );
 

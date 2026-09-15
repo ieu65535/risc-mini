@@ -93,9 +93,11 @@ always @(*) begin
 end
 
 `ifdef SIMULATION
+`ifdef DUMP_WAVES
 initial begin
 	$dumpvars(1, mem_we);
 end
+`endif
 `endif
 
 endmodule

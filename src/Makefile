@@ -18,10 +18,15 @@ $(DEPS):
 $(PROJ).bin: $(DEPS) Makefile
 	$(OC) $(OCFLAGS) $< $@
 
-PMEM_DEPTH=12
+PMEM_DEPTH ?= 10
 PMEM_SIZE=$(shell echo $$((4<<$(PMEM_DEPTH))))
 
-$(PROJ).mem: $(PROJ).bin
+$(PROJ).mem: $(PROJ).bin Makefile
+	@size=$$(wc -c < $<); \
+	if [ "$$size" -gt "$(PMEM_SIZE)" ]; then \
+		echo "error: $< is $$size bytes, larger than the $(PMEM_SIZE)-byte program ROM"; \
+		exit 1; \
+	fi
 	cat $< /dev/zero | head -c $(PMEM_SIZE) | hexdump -ve '/4 "%.8x\n"' > $@
 
 # 生成 Xilinx COE 文件用于 BRAM 初始化

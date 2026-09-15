@@ -16,6 +16,7 @@ module tb_pipeline();
     logic [31:0] mem_din;
     logic [31:0] mem_addr;
     logic [ 3:0] mem_we;
+    integer      error_count = 0;
 
     // -----------------------------------------------------------
     // 2. 模拟同步内存 (Instruction & Data)
@@ -44,7 +45,8 @@ module tb_pipeline();
         .mem_dout   (mem_dout),
         .mem_din    (mem_din),
         .mem_addr   (mem_addr),
-        .mem_we     (mem_we)
+        .mem_we     (mem_we),
+        .timer_int  (1'b0)
     );
 
     initial begin
@@ -71,6 +73,7 @@ module tb_pipeline();
     );
         logic [31:0] actual_jump_target;
         bit          jump_occurred;
+        bit          pass;
     begin
         // 1. 发起复位
         rst = 1;
@@ -135,11 +138,14 @@ module tb_pipeline();
 
         // 6. 结果校验
         $write("测试 [%s] : ", test_name);
+        pass = 1;
         
         // 校验寄存器写回 (R型, I型, U型, J型, Load)
         if (check_rd && rd_idx != 0) begin
             if (dut.u_reg_file.regs[rd_idx] !== rd_expected) begin
                 $display("\n  -> [FAIL] 期望 x%0d = 0x%08h, 实际 = 0x%08h", rd_idx, rd_expected, dut.u_reg_file.regs[rd_idx]);
+                error_count = error_count + 1;
+                pass = 0;
             end
         end
 
@@ -147,6 +153,8 @@ module tb_pipeline();
         if (check_mem) begin
             if (data_mem[mem_check_addr[9:2]] !== mem_expected) begin
                 $display("\n  -> [FAIL] 期望 Mem[0x%08h] = 0x%08h, 实际 = 0x%08h", mem_check_addr, mem_expected, data_mem[mem_check_addr[9:2]]);
+                error_count = error_count + 1;
+                pass = 0;
             end
         end
 
@@ -154,17 +162,21 @@ module tb_pipeline();
         if (check_jump) begin
             if (!jump_occurred) begin
                 $display("\n  -> [FAIL] 期望发生跳转，但最终判定为不跳转");
+                error_count = error_count + 1;
+                pass = 0;
             end
             if (actual_jump_target !== pc_expected) begin
                 $display("\n  -> [FAIL] 期望跳转PC = 0x%08h, 实际 = 0x%08h", pc_expected, actual_jump_target);
+                error_count = error_count + 1;
+                pass = 0;
             end
         end else if (jump_occurred) begin
             $display("\n  -> [FAIL] 期望不跳转，但发生了异常跳转到 0x%08h", actual_jump_target);
+            error_count = error_count + 1;
+            pass = 0;
         end
 
-        // 如果没有抛出FAIL，则通过
-        // (为了排版更整洁，建议在此处加个简单的标志位，但为了保持你原有逻辑，这里直接沿用)
-        $display("[PASS]");
+        if (pass) $display("[PASS]");
     end
     endtask
 
@@ -259,7 +271,12 @@ module tb_pipeline();
         $display("========================================");
         $display("   所有指令测试完毕");
         $display("========================================");
-        $finish;
+        if (error_count == 0) begin
+            $display("[TB PASS] tb_pipeline");
+            $finish;
+        end else begin
+            $fatal(1, "[TB FAIL] tb_pipeline: %0d checks failed", error_count);
+        end
     end
 
     // 生成波形

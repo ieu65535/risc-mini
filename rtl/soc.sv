@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 `include "config.vh"
 module soc(
     input  logic clk,
@@ -42,13 +43,16 @@ pipeline u_cpu(
     .mem_addr  (mem_addr  ),
     .mem_din   (mem_din   ),
     .mem_dout  (mem_dout  ),
-    .mem_we    (mem_we    )
+    .mem_we    (mem_we    ),
+    .timer_int (1'b0      )
 );
 
 `ifdef SIMULATION
+`ifdef DUMP_WAVES
 initial begin
 	$dumpvars(1, inst_addr, inst);
 end
+`endif
 `endif
 
 endmodule

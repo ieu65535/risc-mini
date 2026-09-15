@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 `include "micro.vh"
 
-module tb_hazard();
+module tb_dhazards();
 
     // -----------------------------------------------------------
     // 1. 信号定义
@@ -16,6 +16,8 @@ module tb_hazard();
     logic [31:0] mem_din;
     logic [31:0] mem_addr;
     logic [ 3:0] mem_we;
+    integer      error_count = 0;
+    integer      errors_before;
 
     // -----------------------------------------------------------
     // 2. 模拟同步内存
@@ -44,7 +46,8 @@ module tb_hazard();
         .mem_dout   (mem_dout),
         .mem_din    (mem_din),
         .mem_addr   (mem_addr),
-        .mem_we     (mem_we)
+        .mem_we     (mem_we),
+        .timer_int  (1'b0)
     );
 
     initial begin
@@ -70,6 +73,7 @@ module tb_hazard();
     );
         logic [31:0] actual_jump_target;
         bit          jump_occurred;
+        bit          pass;
     begin
         // 复位与环境清理
         rst = 1;
@@ -132,11 +136,14 @@ module tb_hazard();
 
         // 结果校验大派对
         $write("测试 [%s] : ", test_name);
+        pass = 1;
         
         // 1. 校验寄存器写回
         if (check_rd_en) begin
             if (dut.u_reg_file.regs[check_rd_idx] !== expected_rd_val) begin
                 $display("\n  -> [FAIL] 期望 x%0d = 0x%08h, 实际 = 0x%08h", check_rd_idx, expected_rd_val, dut.u_reg_file.regs[check_rd_idx]);
+                error_count = error_count + 1;
+                pass = 0;
             end
         end
 
@@ -144,6 +151,8 @@ module tb_hazard();
         if (check_mem_en) begin
             if (data_mem[mem_check_addr[9:2]] !== expected_mem_val) begin
                 $display("\n  -> [FAIL] 期望 Mem[0x%08h] = 0x%08h, 实际 = 0x%08h", mem_check_addr, expected_mem_val, data_mem[mem_check_addr[9:2]]);
+                error_count = error_count + 1;
+                pass = 0;
             end
         end
 
@@ -151,15 +160,21 @@ module tb_hazard();
         if (check_jump_en) begin
             if (!jump_occurred) begin
                 $display("\n  -> [FAIL] 期望发生跳转，但最终判定为不跳转");
+                error_count = error_count + 1;
+                pass = 0;
             end
             if (actual_jump_target !== expected_jump_pc) begin
                 $display("\n  -> [FAIL] 期望跳转PC = 0x%08h, 实际 = 0x%08h", expected_jump_pc, actual_jump_target);
+                error_count = error_count + 1;
+                pass = 0;
             end
         end else if (jump_occurred) begin
             $display("\n  -> [FAIL] 期望不跳转，但发生了异常跳转到 0x%08h", actual_jump_target);
+            error_count = error_count + 1;
+            pass = 0;
         end
 
-        $display("[PASS]");
+        if (pass) $display("[PASS]");
     end
     endtask
 
@@ -256,16 +271,25 @@ module tb_hazard();
         );
 
         // 补充校验其余三个栈位置（因任务只支持一次内存校验）
-        if (data_mem[8'hFC] !== 32'hC5C5C5C5)   // sp+0  -> s2
-            $error("栈偏移 0 数据错误，期望 0xC5C5C5C5, 实际 0x%h", data_mem[8'hFC]);
-        if (data_mem[8'hFD] !== 32'hB5B5B5B5)   // sp+4  -> s1
-            $error("栈偏移 4 数据错误，期望 0xB5B5B5B5, 实际 0x%h", data_mem[8'hFD]);
-        if (data_mem[8'hFE] !== 32'hA5A5A5A5)   // sp+8  -> s0
-            $error("栈偏移 8 数据错误，期望 0xA5A5A5A5, 实际 0x%h", data_mem[8'hFE]);
-        if (data_mem[8'hFF] !== 32'h00000000)   // sp+12 -> ra (已被清零)
-            $error("栈偏移 12 数据错误，期望 0x00000000, 实际 0x%h", data_mem[8'hFF]);
-        else
-            $display("栈保存序列内存校验全部通过");
+        errors_before = error_count;
+        if (data_mem[8'hFC] !== 32'hC5C5C5C5) begin // sp+0 -> s2
+            $display("[FAIL] 栈偏移 0 数据错误，期望 0xC5C5C5C5, 实际 0x%h", data_mem[8'hFC]);
+            error_count = error_count + 1;
+        end
+        if (data_mem[8'hFD] !== 32'hB5B5B5B5) begin // sp+4 -> s1
+            $display("[FAIL] 栈偏移 4 数据错误，期望 0xB5B5B5B5, 实际 0x%h", data_mem[8'hFD]);
+            error_count = error_count + 1;
+        end
+        if (data_mem[8'hFE] !== 32'hA5A5A5A5) begin // sp+8 -> s0
+            $display("[FAIL] 栈偏移 8 数据错误，期望 0xA5A5A5A5, 实际 0x%h", data_mem[8'hFE]);
+            error_count = error_count + 1;
+        end
+        if (data_mem[8'hFF] !== 32'h00000000) begin // sp+12 -> ra
+            $display("[FAIL] 栈偏移 12 数据错误，期望 0x00000000, 实际 0x%h", data_mem[8'hFF]);
+            error_count = error_count + 1;
+        end
+        if (error_count == errors_before)
+            $display("[PASS] 栈保存序列内存校验全部通过");
 
         $display("========================================");
         $display("          memcpy 循环冒险测试             ");
@@ -311,22 +335,28 @@ module tb_hazard();
 
         // 6. 校验目标内存
         $write("memcpy 测试: ");
-        if (data_mem[8'h80] !== 32'hDEADBEEF) $display("\n  -> [FAIL] 0x200 期望 0xDEADBEEF, 实际 0x%h", data_mem[8'h80]);
-        else if (data_mem[8'h81] !== 32'hCAFEBABE) $display("\n  -> [FAIL] 0x204 期望 0xCAFEBABE, 实际 0x%h", data_mem[8'h81]);
-        else if (data_mem[8'h82] !== 32'h12345678) $display("\n  -> [FAIL] 0x208 期望 0x12345678, 实际 0x%h", data_mem[8'h82]);
-        else if (data_mem[8'h83] !== 32'h9ABCDEF0) $display("\n  -> [FAIL] 0x20C 期望 0x9ABCDEF0, 实际 0x%h", data_mem[8'h83]);
-        else $display("[PASS]");
+        errors_before = error_count;
+        if (data_mem[8'h80] !== 32'hDEADBEEF) begin $display("\n  -> [FAIL] 0x200 期望 0xDEADBEEF, 实际 0x%h", data_mem[8'h80]); error_count = error_count + 1; end
+        if (data_mem[8'h81] !== 32'hCAFEBABE) begin $display("\n  -> [FAIL] 0x204 期望 0xCAFEBABE, 实际 0x%h", data_mem[8'h81]); error_count = error_count + 1; end
+        if (data_mem[8'h82] !== 32'h12345678) begin $display("\n  -> [FAIL] 0x208 期望 0x12345678, 实际 0x%h", data_mem[8'h82]); error_count = error_count + 1; end
+        if (data_mem[8'h83] !== 32'h9ABCDEF0) begin $display("\n  -> [FAIL] 0x20C 期望 0x9ABCDEF0, 实际 0x%h", data_mem[8'h83]); error_count = error_count + 1; end
+        if (error_count == errors_before) $display("[PASS]");
         
         $display("========================================");
         $display("               测试全部结束               ");
         $display("========================================");
-        $finish;
+        if (error_count == 0) begin
+            $display("[TB PASS] tb_dhazards");
+            $finish;
+        end else begin
+            $fatal(1, "[TB FAIL] tb_dhazards: %0d checks failed", error_count);
+        end
     end
 
     // 生成波形
     // initial begin
     //     $dumpfile("tb_hazard.vcd");
-    //     $dumpvars(0, tb_hazard);
+    //     $dumpvars(0, tb_dhazards);
     // end
 
 endmodule

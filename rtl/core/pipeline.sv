@@ -20,6 +20,30 @@ logic [31:0] target_pc;
 logic        trap_valid;
 logic        mret_valid;
 logic [31:0] trap_cause;
+logic [ 1:0] pc_sel;
+wire  [ 4:0] rs1_addr = inst[19:15];
+wire  [ 4:0] rs2_addr = inst[24:20];
+logic [31:0] csr_rdata_ex;
+logic [31:0] csr_wdata_ex;
+logic [31:0] csr_mepc;
+logic [31:0] csr_mtvec;
+logic        csr_mstatus_mie;
+logic        csr_we_ex;
+logic        is_ecall_ex;
+logic        is_mret_ex;
+logic [ 4:0] rd_addr_ex;
+logic [ 1:0] wb_sel_ex;
+logic [31:0] pc_ex;
+logic [ 1:0] pc_sel_ex;
+logic [31:0] alu_dout;
+logic        alu_cond;
+logic [31:0] alu_dout_mem;
+logic [ 1:0] wb_sel_mem;
+logic [31:0] pc_mem;
+logic [ 4:0] rd_addr_mem;
+logic [31:0] csr_rdata_mem;
+logic [31:0] mem_data;
+logic [ 4:0] rd_addr_wb;
 
 ctrl u_ctrl(
     .rs1_addr   (rs1_addr   ),
@@ -69,7 +93,6 @@ logic       is_sra;
 logic [3:0] mem_mask;
 logic       rd_en;
 logic [1:0] wb_sel;
-logic [1:0] pc_sel;
 logic      csr_we;
 logic      is_ecall;
 logic      is_mret;
@@ -92,8 +115,6 @@ decoder u_decoder(
     .is_mret    (is_mret    )
 );
 
-wire  [ 4:0] rs1_addr = inst[19:15];
-wire  [ 4:0] rs2_addr = inst[24:20];
 logic [31:0] rs1_data;
 logic [31:0] rs2_data;
 logic [31:0] rd_data;
@@ -134,15 +155,6 @@ forward u_forward(
 );
 
 
-logic [31:0] csr_rdata_ex;
-logic [31:0] csr_wdata_ex;
-logic [31:0] csr_mepc;
-logic [31:0] csr_mtvec;
-logic        csr_mstatus_mie;
-logic csr_we_ex;
-logic is_ecall_ex;
-logic is_mret_ex;
-
 csr_file u_csr_file(
     .clk             (clk),
     .rst             (rst),  
@@ -175,11 +187,6 @@ logic [ 1:0] op2_sel_ex;
 logic [31:0] inst_ex;
 logic [31:0] rs1_ex;
 logic [31:0] rs2_ex;
-logic [ 4:0] rd_addr_ex;
-logic [ 1:0] wb_sel_ex;
-logic [31:0] pc_ex;
-logic [ 1:0] pc_sel_ex;
-
 always_ff @(posedge clk) begin
     if(rst | stall | pc_mis) begin
         is_sra_ex   <= 1'b0;
@@ -221,9 +228,6 @@ always_ff @(posedge clk) begin
 end
 
 
-logic [31:0] alu_dout;
-logic        alu_cond;
-
 ex u_ex(
     .pc       (pc_ex       ), 
     .inst     (inst_ex     ), 
@@ -241,12 +245,7 @@ ex u_ex(
 
 );
 
-logic [31:0] alu_dout_mem;
 logic [ 2:0] funct3_mem;
-logic [ 1:0] wb_sel_mem;
-logic [31:0] pc_mem;
-logic [ 4:0] rd_addr_mem;
-logic [31:0] csr_rdata_mem;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -266,8 +265,6 @@ always_ff @(posedge clk) begin
     end
 end
 
-logic [31:0] mem_data;
-
 lmb u_lmb(
     .alu_dout     (alu_dout     ),
     .alu_dout_mem (alu_dout_mem ),
@@ -283,7 +280,6 @@ lmb u_lmb(
 
 logic [31:0] alu_dout_wb;
 logic [ 1:0] wb_sel_wb;
-logic [ 4:0] rd_addr_wb;
 logic [31:0] pc_wb;
 logic [31:0] mem_data_wb;
 logic [31:0] csr_rdata_wb;
@@ -317,6 +313,7 @@ wb u_wb(
 );
 
 `ifdef SIMULATION
+`ifdef DUMP_WAVES
 initial begin
 	$dumpvars(1, stall, pc_mis, target_pc);
     $dumpvars(1, rs1, rs2, rd_data, mem_dout, alu_dout, alu_dout_mem);
@@ -324,6 +321,7 @@ initial begin
     // $dumpvars(1, rs1_data, op1_sel_ex);
     $dumpvars(1, rs2_data, op2_sel_ex);
 end
+`endif
 `endif
 
 endmodule

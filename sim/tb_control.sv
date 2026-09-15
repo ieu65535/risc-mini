@@ -15,6 +15,7 @@ module tb_control();
     logic [31:0] mem_din;
     logic [31:0] mem_addr;
     logic [ 3:0] mem_we;
+    integer      error_count = 0;
 
     // -----------------------------------------------------------
     // 2. 模拟同步内存
@@ -43,7 +44,8 @@ module tb_control();
         .mem_dout   (mem_dout),
         .mem_din    (mem_din),
         .mem_addr   (mem_addr),
-        .mem_we     (mem_we)
+        .mem_we     (mem_we),
+        .timer_int  (1'b0)
     );
 
     initial begin
@@ -94,12 +96,14 @@ module tb_control();
         if (reg1_idx != 0) begin
             if (dut.u_reg_file.regs[reg1_idx] !== expected1) begin
                 $display("  -> [FAIL] 期望 x%0d = %0d, 实际 = %0d", reg1_idx, expected1, dut.u_reg_file.regs[reg1_idx]);
+                error_count = error_count + 1;
                 pass = 0;
             end
         end
         if (reg2_idx != 0) begin
             if (dut.u_reg_file.regs[reg2_idx] !== expected2) begin
                 $display("  -> [FAIL] 期望 x%0d = %0d, 实际 = %0d", reg2_idx, expected2, dut.u_reg_file.regs[reg2_idx]);
+                error_count = error_count + 1;
                 pass = 0;
             end
         end
@@ -181,13 +185,20 @@ module tb_control();
         $display("========================================");
         $display("               测试全部结束               ");
         $display("========================================");
-        $finish;
+        if (error_count == 0) begin
+            $display("[TB PASS] tb_control");
+            $finish;
+        end else begin
+            $fatal(1, "[TB FAIL] tb_control: %0d checks failed", error_count);
+        end
     end
 
-    // 生成波形
+    // 仅在显式定义 DUMP_WAVES 时生成波形，避免拖慢日常回归。
+`ifdef DUMP_WAVES
     initial begin
         $dumpfile("tb_control.vcd");
         $dumpvars(0, tb_control.dut.u_pc_reg);
     end
+`endif
 
 endmodule

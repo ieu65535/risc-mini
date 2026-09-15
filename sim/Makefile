@@ -4,7 +4,12 @@ ifndef ICARUS
     VVP = vvp
 endif
 
-TB_MOUDLE = tb_soc.sv
+ifeq ($(DUMP_WAVES),1)
+    ICARUS += -DDUMP_WAVES
+endif
+
+TB_MOUDLE ?= tb_soc.sv
+TB_TOP ?= $(basename $(notdir $(TB_MOUDLE)))
 # TB_MOUDLE = tb_control.sv
 #TB_MOUDLE = tb_dhazards.sv
 #TB_MOUDLE = tb_pipeline.sv
@@ -53,4 +58,4 @@ $(VCDS): $(XSIM)
 	$(VVP) $<
 
 $(XSIM): $(DEPS)
-	$(ICARUS) -I ../rtl -I ../rtl/core -o $(XSIM) $(RTLS)
+	$(ICARUS) -I ../rtl -I ../rtl/core -s $(TB_TOP) -o $(XSIM) $(RTLS)

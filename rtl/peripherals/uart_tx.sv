@@ -86,9 +86,11 @@ always @(posedge clk) begin
 end
 
 `ifdef SIMULATION
+`ifdef DUMP_WAVES
 initial begin
 	$dumpvars(1, en, din);
 end
+`endif
 `endif
 
 endmodule
