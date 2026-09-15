@@ -22,7 +22,8 @@ module csr_file(
     // 提供给控制模块 (ctrl) 和 PC 取指模块的只读信号
     output logic [31:0] csr_mepc_out,
     output logic [31:0] csr_mtvec_out,
-    output logic        csr_mstatus_mie // 全局中断使能位 (mstatus 的第3位)
+    output logic        csr_mstatus_mie, // 全局中断使能位 (mstatus 的第3位)
+    output logic        csr_mie_mtie     // 机器定时器中断使能位 (mie 的第7位)
 );
 
     // 定义内部实际存在的寄存器
@@ -37,6 +38,7 @@ module csr_file(
     assign csr_mepc_out    = mepc;
     assign csr_mtvec_out   = mtvec;
     assign csr_mstatus_mie = mstatus[3]; // MIE (Machine Interrupt Enable)
+    assign csr_mie_mtie    = mie[7];     // MTIE (Machine Timer Interrupt Enable)
 
     // 读 CSR 逻辑 (组合逻辑)
     always_comb begin

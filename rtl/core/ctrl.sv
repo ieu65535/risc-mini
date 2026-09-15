@@ -17,6 +17,7 @@ module ctrl(
     input  logic [31:0] csr_mtvec,       // 从 CSR 读出的异常入口
     input  logic [31:0] csr_mepc,        // 从 CSR 读出的返回地址
     input  logic        csr_mstatus_mie, // 全局中断使能
+    input  logic        csr_mie_mtie,    // 机器定时器中断使能
     input  logic        timer_int,       // 外部定时器中断 (预留给 FreeRTOS)
 
     output logic        trap_valid,
@@ -26,13 +27,16 @@ module ctrl(
 
 assign stall = (wb_sel_ex == `WB_MEM) && (rd_addr_ex != 5'b0) && ((rs1_addr == rd_addr_ex) || (rs2_addr == rd_addr_ex));
 
+logic timer_irq_enabled;
+assign timer_irq_enabled = timer_int & csr_mstatus_mie & csr_mie_mtie;
+
 //ecall
-assign trap_valid = is_ecall_ex | (timer_int & csr_mstatus_mie);
+assign trap_valid = is_ecall_ex | timer_irq_enabled;
 assign mret_valid = is_mret_ex;
 
 //trap_cause
-assign trap_cause = (timer_int & csr_mstatus_mie) ? 32'h8000_0007 : 
-                    is_ecall_ex                   ? 32'd11        : 32'd0;
+assign trap_cause = timer_irq_enabled ? 32'h8000_0007 :
+                    is_ecall_ex       ? 32'd11        : 32'd0;
 
 logic branch_mis;
 always_comb begin

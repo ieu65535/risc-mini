@@ -28,6 +28,7 @@ logic [31:0] csr_wdata_ex;
 logic [31:0] csr_mepc;
 logic [31:0] csr_mtvec;
 logic        csr_mstatus_mie;
+logic        csr_mie_mtie;
 logic        csr_we_ex;
 logic        is_ecall_ex;
 logic        is_mret_ex;
@@ -63,6 +64,7 @@ ctrl u_ctrl(
     .csr_mtvec  (csr_mtvec  ),
     .csr_mepc   (csr_mepc   ),
     .csr_mstatus_mie(csr_mstatus_mie),
+    .csr_mie_mtie(csr_mie_mtie),
     .timer_int  (timer_int),  
     
     .trap_valid (trap_valid ),
@@ -166,7 +168,7 @@ csr_file u_csr_file(
     .csr_raddr       (inst_ex[31:20]),
     .csr_rdata       (csr_rdata_ex),
     
-    // 异常/中断相关 (目前先接 0，第二阶段再处理)
+    // 异常/中断相关
     .trap_valid      (trap_valid), 
     .mret_valid      (mret_valid),
     .trap_pc         (pc_ex),      // 当前触发异常的指令 PC
@@ -175,7 +177,8 @@ csr_file u_csr_file(
     // 直通输出
     .csr_mepc_out    (csr_mepc),
     .csr_mtvec_out   (csr_mtvec),
-    .csr_mstatus_mie (csr_mstatus_mie)
+    .csr_mstatus_mie (csr_mstatus_mie),
+    .csr_mie_mtie    (csr_mie_mtie)
 );
 
 logic        is_sra_ex;

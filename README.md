@@ -21,7 +21,7 @@
 | RV32I 整数通路 | RTL 已实现，回归未闭环 | 未做 riscv-arch-test；译码没有严格拒绝全部非法 `funct3/funct7` 组合 |
 | Zicsr | 实验性实现 | 六条 CSR 读改写指令有数据通路，但 CSR 权限、只读属性和非法访问异常未实现 |
 | ECALL / MRET | 实验性实现 | 只有 M 模式 ECALL cause 11；精确 Trap 语义尚未建立 |
-| 机器定时器中断 | 核心内有实验性逻辑，SoC 暂时禁用 | `timer_int` 在 SoC 中固定为 0；没有同步器、CLINT/mtime；`mie.MTIE` 不参与门控 |
+| 机器定时器中断 | 核心内有实验性逻辑，SoC 暂时禁用 | 核心现要求 `mstatus.MIE` 与 `mie.MTIE` 同时置位；`timer_int` 在 SoC 中固定为 0，且仍没有同步器、CLINT/mtime、`mip.MTIP` 和精确提交机制 |
 | 分支与冒险 | RTL 已实现 | Branch/JAL 静态预测跳转，JALR 在 EX 纠正；有 EX/MEM/WB 前递和 load-use 停顿 |
 | UART | RTL 与 hello 软件已接入 | 尚无自检 UART testbench，也没有本次板级串口记录 |
 | ROM / RAM | RTL 已实现 | 物理容量各 4 KiB，与镜像生成和链接脚本不一致 |
@@ -92,7 +92,7 @@
 | CSR | 地址 | 当前行为 |
 | --- | ---: | --- |
 | `mstatus` | `0x300` | 存储 32 位；Trap/MRET 仅显式处理 MIE bit 3 和 MPIE bit 7 |
-| `mie` | `0x304` | 可读写，但 `MTIE` 尚未接入中断使能判断 |
+| `mie` | `0x304` | 可读写；`MTIE` bit 7 已接入机器定时器中断使能判断 |
 | `mtvec` | `0x305` | 可读写；Trap 直接跳到原始值，不解析 Direct/Vectored 模式 |
 | `mscratch` | `0x340` | 可读写 |
 | `mepc` | `0x341` | 可读写；Trap 时保存 `pc_ex` |
@@ -238,7 +238,7 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - 示例代码使用 `0x1000_0000` 的 NS16550，另一些 UART 宏使用 `0x4000_4000`，当前 UART 实际位于 `0x4000_0000` 且寄存器布局不同；
 - `main.c` 默认把 `mtvec` 配为 vectored 模式，当前核心只把 `mtvec` 原值当作 direct 入口；
 - 80 KiB heap 和 128 KiB 链接 RAM 都超过实际 4 KiB RAM；
-- SoC 当前将 `timer_int` 固定为 0，核心仍没有 `mie.MTIE` 门控和精确中断提交。
+- SoC 当前将 `timer_int` 固定为 0；核心已有 `mie.MTIE` 门控，但仍没有中断源同步、`mip.MTIP` 和精确中断提交。
 - FreeRTOS Makefile 没有编译仓内 `start.S`，启动和 `.data/.bss` 初始化依赖 picolibc CRT；它还会无条件编译 full-demo 文件集合，不能把默认 blinky 选择等同于精简镜像。
 - FreeRTOS 应用没有调用当前 `mini_libc` 的 `uart_init`；UART 分频寄存器复位为 0，即使 stdout 映射改对，也仍需显式设置板级波特率。
 
@@ -278,6 +278,12 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - 初次 Vivado 功能预检中，`tb_control` 与 Icarus 的 JALR 结果不一致；该次 `tb_interrupt` 还因组合取指模型形成零延迟反馈而未正常完成。同步取指修复后，`tb_interrupt` 已在 Icarus 和 Vivado Simulator 2024.2 中一致通过；其余完整功能一致性仍需后续复核。
 - `tb_interrupt` 改为与 `flash.sv` 一致的同步取指，并加入阶段标记和周期看门狗后，Docker/Icarus 完整回归于 2026-09-15 得到 `6 passed, 0 failed`：控制流、数据冒险、基本指令、CSR、SoC hello、ECALL/MRET 和现有 Timer 用例全部通过。
 
+### 2026-09-15 阶段 1：Timer 中断使能门控
+
+- `tb_interrupt` 增加三种组合测试：`mstatus.MIE=0`、`MIE=1/MTIE=0` 和 `MIE=1/MTIE=1`。
+- 修复前第二种组合会错误进入 Timer Trap；修复后只有 `mstatus.MIE` 与 `mie.MTIE` 同时为 1 才接收中断。
+- Docker/Icarus 完整回归保持 `6 passed, 0 failed`，同一中断用例也通过 Vivado Simulator 2024.2 独立编译、展开和行为仿真。这只验证了中断使能门控，尚不代表精确中断、挂起位或板级定时器已经完成。
+
 尚未验证：
 
 - RV32I/Zicsr 官方一致性测试；
@@ -299,7 +305,7 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 ### P1 完成可移植 CPU 行为
 
 1. 为流水线增加有效位和明确的提交点，定义中断、异常、stall、flush、Store 和 CSR 写入的精确优先级。
-2. 接入 `mie.MTIE`，实现正确的 `mtvec` Direct/Vectored 处理和必要的特权状态。
+2. `mie.MTIE` 门控已接入；下一步实现正确的 `mtvec` Direct/Vectored 处理和必要的特权状态。
 3. 严格检查 opcode、`funct3`、`funct7`、CSR 权限和地址对齐，并实现 illegal/misaligned Trap。
 4. 为指令和数据接口定义握手协议，或把“一拍同步返回、永不等待”写成稳定接口契约。
 5. 增加 UART 自检、随机/定向冒险测试和官方 RISC-V ISA 测试。

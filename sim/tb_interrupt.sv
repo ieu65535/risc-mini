@@ -13,6 +13,8 @@ module tb_interrupt();
     logic [31:0] inst = 32'h00000013;
     integer      error_count = 0;
     integer      cycle_count = 0;
+    integer      timer_trap_count = 0;
+    integer      timer_trap_count_before = 0;
     
     logic [31:0] inst_mem [0:255];
 
@@ -57,6 +59,25 @@ module tb_interrupt();
         end
     end
 
+    // 记录 CPU 实际接收了多少次机器定时器中断。
+    // 只观察 DUT 的中断接收结果，不直接修改 CSR 内部状态。
+    always @(posedge clk) begin
+        if (rst)
+            timer_trap_count <= 0;
+        else if (dut.trap_valid && (dut.trap_cause === 32'h80000007))
+            timer_trap_count <= timer_trap_count + 1;
+    end
+
+    task automatic pulse_timer;
+        begin
+            // 在下降沿改变异步测试输入，使其跨越一个完整的上升沿。
+            @(negedge clk);
+            timer_int = 1'b1;
+            @(negedge clk);
+            timer_int = 1'b0;
+        end
+    endtask
+
     // ==========================================
     // 5. 组装测试用的微型操作系统汇编代码
     // ==========================================
@@ -68,21 +89,22 @@ module tb_interrupt();
 
         for(int i=0; i<256; i++) inst_mem[i] = 32'h00000013; // 默认 NOP
         
-        // --- 主程序区 (0x00 ~ 0x18) ---
-        // 初始化中断环境
+        // --- 主程序区 ---
+        // 初始化 mtvec，然后先停在 0x08。此时 MIE=0、MTIE=0。
         inst_mem[0] = 32'h04000093; // 00: addi x1, x0, 0x40 (中断入口地址设为 0x40)
         inst_mem[1] = 32'h30509073; // 04: csrw mtvec, x1    (写入 mtvec)
-        inst_mem[2] = 32'h00800113; // 08: addi x2, x0, 8    (掩码: 第3位 MIE)
+        inst_mem[2] = 32'h0000006f; // 08: jal x0, 0         (测试阶段动态替换后继续)
+
+        // 开启全局中断并验证 ECALL/MRET；此时仍保持 mie.MTIE=0。
         inst_mem[3] = 32'h30012073; // 0C: csrs mstatus, x2  (开启全局中断 MIE=1)
-        
-        // 触发同步异常 (ECALL)
         inst_mem[4] = 32'h00000073; // 10: ecall             <-- 产生 Trap，跳去 0x40！
-        
-        // 如果 Flush 失败，这条会被误执行；如果成功，只会从中断返回后才执行
         inst_mem[5] = 32'h06300193; // 14: addi x3, x0, 99   (目标验证点：x3 是否等于 99)
-        
-        // 模拟操作系统 Idle 任务 (死循环)
-        inst_mem[6] = 32'h0000006f; // 18: jal x0, 0         <-- 死循环等待外部 timer_int
+        inst_mem[6] = 32'h0000006f; // 18: jal x0, 0         (MTIE=0 测试等待点)
+
+        // 测试阶段会把 0x18 动态替换为 addi x2, x0, 0x80，随后执行：
+        inst_mem[7] = 32'h30412073; // 1C: csrs mie, x2      (开启 MTIE，mie[7]=1)
+        inst_mem[8] = 32'h00100513; // 20: addi x10, x0, 1  (到达最终等待点的标记)
+        inst_mem[9] = 32'h0000006f; // 24: jal x0, 0         (MIE=1、MTIE=1 测试等待点)
 
         // --- 中断服务函数 Trap Handler (基址 0x40，即 inst_mem[16]) ---
         inst_mem[16] = 32'h34202273; // 40: csrr x4, mcause  (读取异常原因)
@@ -106,15 +128,33 @@ module tb_interrupt();
         timer_int = 0;
         #20;
         rst = 0;
-        $display("[TB PHASE] ECALL/MRET test started");
-
-        // 【阶段 1】：让 CPU 跑 50 个周期，足够它执行完 ECALL 并 MRET 返回
-        repeat(50) @(posedge clk);
-
-        // 此时 CPU 应该在 0x18 的死循环里。我们来检查 ECALL 是否处理正确。
         $display("\n========================================");
         $display("       异常与中断机制自动化验证报告       ");
         $display("========================================");
+
+        // 【阶段 1】：mstatus.MIE=0 时，即使 timer_int 到来也不能进入中断。
+        $display("[TB PHASE] Timer masked by mstatus.MIE=0");
+        wait (dut.u_csr_file.mtvec === 32'h00000040);
+        wait (inst_addr === 32'h00000008);
+        repeat(3) @(posedge clk);
+        timer_trap_count_before = timer_trap_count;
+        pulse_timer();
+        repeat(3) @(posedge clk);
+
+        if (timer_trap_count == timer_trap_count_before)
+            $display("[PASS] mstatus.MIE=0 时 Timer 中断被正确屏蔽");
+        else begin
+            $display("[FAIL] mstatus.MIE=0 时错误接收了 Timer 中断");
+            error_count = error_count + 1;
+        end
+
+        // 把 0x08 的等待指令替换为设置 MIE 掩码，让程序继续运行。
+        @(negedge clk);
+        inst_mem[2] = 32'h00800113; // 08: addi x2, x0, 8
+
+        // 【阶段 2】：验证同步异常 ECALL 及 MRET 返回。
+        $display("[TB PHASE] ECALL/MRET test started");
+        wait (dut.u_reg_file.regs[3] === 32'd99);
 
         if (dut.u_reg_file.regs[3] === 32'd99) 
             $display("[PASS] 流水线 Flush 与 ECALL 返回正常 (x3=99)");
@@ -130,18 +170,42 @@ module tb_interrupt();
             error_count = error_count + 1;
         end
 
-        // 【阶段 2】：模拟外部定时器中断 (拉高 timer_int)
-        // 此时 CPU 在 0x18 死循环，拉高信号会将其强制拖入中断
-        $display("[TB PHASE] Timer interrupt test started");
-        @(posedge clk);
-        timer_int = 1; 
-        
-        // 保持中断信号几个周期，然后撤销 (模拟外部设备脉冲)
+        // 【阶段 3】：MIE=1 但 mie.MTIE=0 时，Timer 仍必须被屏蔽。
+        $display("[TB PHASE] Timer masked by mie.MTIE=0");
+        wait (dut.u_csr_file.mstatus[3] === 1'b1);
+        wait (inst_addr === 32'h00000018);
         repeat(3) @(posedge clk);
-        timer_int = 0;
+        timer_trap_count_before = timer_trap_count;
+        pulse_timer();
+        repeat(3) @(posedge clk);
 
-        // 让 CPU 跑 30 个周期，足够它进入中断处理并再次 MRET 返回
-        repeat(30) @(posedge clk);
+        if (timer_trap_count == timer_trap_count_before)
+            $display("[PASS] mie.MTIE=0 时 Timer 中断被正确屏蔽");
+        else begin
+            $display("[FAIL] mie.MTIE=0 时错误接收了 Timer 中断");
+            error_count = error_count + 1;
+        end
+
+        // 把 0x18 的等待指令替换为 MTIE 掩码装载，让程序继续运行。
+        @(negedge clk);
+        inst_mem[6] = 32'h08000113; // 18: addi x2, x0, 0x80
+
+        // 【阶段 4】：MIE=1 且 MTIE=1 时，Timer 必须被接收。
+        $display("[TB PHASE] Timer enabled by MIE=1 and MTIE=1");
+        wait (dut.u_csr_file.mie[7] === 1'b1);
+        wait (dut.u_reg_file.regs[10] === 32'd1);
+        wait (inst_addr === 32'h00000024);
+        repeat(3) @(posedge clk);
+        timer_trap_count_before = timer_trap_count;
+        pulse_timer();
+        repeat(20) @(posedge clk);
+
+        if (timer_trap_count > timer_trap_count_before)
+            $display("[PASS] MIE=1 且 MTIE=1 时正确接收 Timer 中断");
+        else begin
+            $display("[FAIL] MIE=1 且 MTIE=1 时未接收 Timer 中断");
+            error_count = error_count + 1;
+        end
 
         // 检查 Timer 中断是否被捕获
         if (dut.u_reg_file.regs[4] === 32'h80000007)
@@ -151,9 +215,9 @@ module tb_interrupt();
             error_count = error_count + 1;
         end
 
-        // 检查 Timer 中断保存的 mepc 是否是死循环的地址 (0x18)
-        if (dut.u_reg_file.regs[5] === 32'h00000018)
-            $display("[PASS] mepc 正确保存被打断的 PC (0x18)");
+        // CPU 已稳定停在 0x24，自此处接受中断时 mepc 应保存 0x24。
+        if (dut.u_reg_file.regs[5] === 32'h00000024)
+            $display("[PASS] mepc 正确保存被打断的 PC (0x24)");
         else begin
             $display("[FAIL] mepc 现场保存错误, x5=%h", dut.u_reg_file.regs[5]);
             error_count = error_count + 1;
