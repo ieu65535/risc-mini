@@ -9,7 +9,7 @@
 - 当前 SoC 顶层是 [`rtl/soc.sv`](rtl/soc.sv)，当前 CPU 主线是 [`rtl/core/pipeline.sv`](rtl/core/pipeline.sv)。
 - [`rtl/core/cpu.sv`](rtl/core/cpu.sv) 和 [`rtl/core/data_path.sv`](rtl/core/data_path.sv) 是未进入现有 SoC 与仿真文件表的旧实现，不应作为新功能入口。
 - 主线核心是 RV32、单发射、顺序执行设计，包含取指/译码前端、EX、MEM、WB 四个逻辑处理阶段和三组级间寄存器。
-- RTL 按设计意图覆盖 37 条常用 RV32I 指令，并加入六条 Zicsr 指令、ECALL、MRET 和一个实验性的机器定时器中断入口。
+- RTL 按设计意图覆盖 37 条常用 RV32I 指令，并加入六条 Zicsr 指令、ECALL、MRET、非法指令异常和一个实验性的机器定时器中断入口。
 - UART、片上 ROM 和片上 RAM 已接入 SoC；GPIO 只有未使用的内部寄存器占位，定时器外设尚不存在。
 - CPU 核心保留 `timer_int` 端口；当前 `soc` 将其明确固定为 0，避免悬空值进入控制逻辑。SoC 仍没有可用的定时器中断源。
 - FreeRTOS 目录是混合版本、混合平台的参考移植素材：内核文件标记为 FreeRTOS Kernel V11.1.0，而配置、demo 与平台文件多为 V202212.00，并混有 QEMU `virt` 和另一套 SoC 的外设假设；尚未完成针对当前 SoC 的移植。
@@ -18,10 +18,11 @@
 
 | 子系统 | 当前状态 | 边界 |
 | --- | --- | --- |
-| RV32I 整数通路 | RTL 已实现，回归未闭环 | 未做 riscv-arch-test；译码没有严格拒绝全部非法 `funct3/funct7` 组合 |
+| RV32I 整数通路 | RTL 已实现，项目回归通过 | opcode、`funct3/funct7` 已严格检查；尚未做 riscv-arch-test |
 | Zicsr | 实验性实现 | 六条 CSR 读改写指令有数据通路，但 CSR 权限、只读属性和非法访问异常未实现 |
-| ECALL / MRET | 实验性实现 | 只有 M 模式 ECALL cause 11；精确 Trap 语义尚未建立 |
-| 机器定时器中断 | 核心内有实验性逻辑，SoC 暂时禁用 | 核心现要求 `mstatus.MIE` 与 `mie.MTIE` 同时置位；`timer_int` 在 SoC 中固定为 0，且仍没有同步器、CLINT/mtime、`mip.MTIP` 和精确提交机制 |
+| ECALL / MRET / 非法指令 | 第一版精确 Trap 已验证 | 支持 M 模式 ECALL cause 11、非法指令 cause 2 和 MRET；EBREAK 尚未单独实现 cause 3 |
+| 地址未对齐异常 | 第一版已验证 | 支持 RV32I 控制流目标 cause 0、Load cause 4、Store cause 6；尚无 `mtval` |
+| 机器定时器中断 | 核心第一版精确提交与请求保持已验证，SoC 暂时禁用 | 要求 `mstatus.MIE` 与 `mie.MTIE`；具有 `mip.MTIP` pending，但 SoC 仍没有同步器和 CLINT/mtime |
 | 分支与冒险 | RTL 已实现 | Branch/JAL 静态预测跳转，JALR 在 EX 纠正；有 EX/MEM/WB 前递和 load-use 停顿 |
 | UART | RTL 与 hello 软件已接入 | 尚无自检 UART testbench，也没有本次板级串口记录 |
 | ROM / RAM | RTL 已实现 | 物理容量各 4 KiB，与镜像生成和链接脚本不一致 |
@@ -81,9 +82,9 @@
 - Store：SB、SH、SW
 - 跳转与高位立即数：JAL、JALR、LUI、AUIPC
 
-上述清单表示 RTL 的译码和数据通路意图，不等同于通过 RV32I compliance。FENCE/FENCE.I 和 EBREAK 未实现；未知 opcode 的 `inst_valid` 没有接入 Trap 或流水控制，部分非法编码可能表现为 NOP 或被别名为已有运算。
+上述清单表示 RTL 的译码和数据通路意图，不等同于通过 RV32I compliance。译码器现严格检查支持指令的 opcode、`funct3` 和 `funct7`；未知或不支持的编码进入同步非法指令异常（cause 2），不会再静默表现为 NOP 或被别名为已有运算。FENCE/FENCE.I 尚未实现；EBREAK 目前也进入 cause 2，尚未实现独立的 breakpoint cause 3。
 
-当前设计不处理非对齐异常。软件必须保证指令地址按 4 字节对齐，LH/SH 至少按 2 字节对齐，LW/SW 按 4 字节对齐。数据通路是小端序。
+当前核心会检查非对齐访问：RV32I 控制流目标必须按 4 字节对齐，LH/SH 按 2 字节对齐，LW/SW 按 4 字节对齐；违例分别产生 cause 0、4、6，并由提交门控阻止故障指令产生副作用。JALR 先按规范清零目标 bit 0，再检查 bit 1。当前没有 `mtval`，也未覆盖错误配置的 `mtvec/mepc` 返回目标。数据通路是小端序。
 
 ### Zicsr 和 CSR
 
@@ -96,10 +97,11 @@
 | `mtvec` | `0x305` | 可读写；Trap 直接跳到原始值，不解析 Direct/Vectored 模式 |
 | `mscratch` | `0x340` | 可读写 |
 | `mepc` | `0x341` | 可读写；Trap 时保存 `pc_ex` |
-| `mcause` | `0x342` | 可读写；当前生成 ECALL 11 和机器定时器中断 `0x80000007` |
+| `mcause` | `0x342` | 可读写；当前生成指令地址未对齐 0、非法指令 2、Load 未对齐 4、Store 未对齐 6、ECALL 11 和机器定时器中断 `0x80000007` |
+| `mip` | `0x344` | `MTIP` bit 7 只读反映已锁存 Timer 请求；请求真正被接收后由硬件清除 |
 | `mhartid` | `0xF14` | 固定读 0 |
 
-`cycle/cycleh` 虽有宏定义，但 CSR 文件没有实现，读取会返回默认值 0。未实现 `mip`、`mtval`、MPP 等完整特权状态，也没有 CSR 地址/权限异常。
+`cycle/cycleh` 虽有宏定义，但 CSR 文件没有实现，读取会返回默认值 0。除 `mip.MTIP` 外，其余 `mip` 位、`mtval`、MPP 等完整特权状态尚未实现，也没有 CSR 地址/权限异常。
 
 ### 控制流和冒险
 
@@ -108,6 +110,7 @@
 - 数据前递优先级为 EX > MEM > WB，覆盖 ALU、Load、PC+4 和 CSR 写回源。
 - load-use 冒险触发一拍停顿并向 EX 插入 bubble。
 - Trap、MRET 和分支纠正共用 PC 重定向通路。PC 重定向现高于普通 `stall`；定向测试覆盖了 load-use 停顿与 Timer Trap 同周期发生的情况。
+- EX、MEM、WB 现有显式 `valid` 状态；Trap 可 kill 当前 EX 指令，Store、CSR 和通用寄存器写入均受提交条件约束。
 
 ## 存储器与 MMIO
 
@@ -238,7 +241,7 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - 示例代码使用 `0x1000_0000` 的 NS16550，另一些 UART 宏使用 `0x4000_4000`，当前 UART 实际位于 `0x4000_0000` 且寄存器布局不同；
 - `main.c` 默认把 `mtvec` 配为 vectored 模式，当前核心只把 `mtvec` 原值当作 direct 入口；
 - 80 KiB heap 和 128 KiB 链接 RAM 都超过实际 4 KiB RAM；
-- SoC 当前将 `timer_int` 固定为 0；核心已有 `mie.MTIE` 门控，但仍没有中断源同步、`mip.MTIP` 和精确中断提交。
+- SoC 当前将 `timer_int` 固定为 0；核心已有 `mie.MTIE`、`mip.MTIP` 和精确提交，但仍没有板级中断源、CDC 同步与 CLINT/mtime。
 - FreeRTOS Makefile 没有编译仓内 `start.S`，启动和 `.data/.bss` 初始化依赖 picolibc CRT；它还会无条件编译 full-demo 文件集合，不能把默认 blinky 选择等同于精简镜像。
 - FreeRTOS 应用没有调用当前 `mini_libc` 的 `uart_init`；UART 分频寄存器复位为 0，即使 stdout 映射改对，也仍需显式设置板级波特率。
 
@@ -254,7 +257,7 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 | `sim/tb_dhazards.sv` | EX/MEM/WB 前递、load-use、Store、栈保存、memcpy |
 | `sim/tb_control.sv` | 条件分支预测/纠正、JAL、JALR 与 Flush |
 | `sim/tb_csr.sv` | CSR 读写、立即数形式和 CSR 数据前递 |
-| `sim/tb_interrupt.sv` | ECALL、MRET、mcause/mepc 和外部 timer 脉冲 |
+| `sim/tb_interrupt.sv` | ECALL、MRET、非法指令、精确提交、mcause/mepc 和外部 timer 脉冲 |
 | `sim/tb_soc.sv` | 复位后运行当前 ROM 镜像的定时 smoke test |
 
 ### 2026-09-10 审计结果
@@ -287,6 +290,48 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - `.vscode/settings.json` 明确让 Icarus lint 从工作区根目录运行，避免把 `rtl/core` 等库路径误解析成 `rtl/rtl/core` 后产生 Unknown module 假报错。
 - 上述结果只验证了中断门控和 PC 重定向优先级，尚不代表精确中断、挂起位或板级定时器已经完成。
 
+### 2026-09-16 阶段 1：`valid/kill/commit` 第一版
+
+- 在 EX、MEM、WB 三个处理级加入显式有效位，bubble 和冲刷不再只依靠控制信号清零表示。
+- Timer Trap 在 EX 接受时 kill 当前指令：若 `mepc` 保存该指令地址，当前执行不会提交，MRET 后由重执行完成一次提交。
+- Store 写使能、CSR 写使能和通用寄存器写回均加入提交门控；寄存器堆不再在每个时钟沿无条件写入。
+- 新测试让 Timer 与 `sw` 的 EX 周期重合。修复前同一 Store 写两次，修复后只在 MRET 返回后写一次。
+- Docker/Icarus 完整回归为 `6 passed, 0 failed`；中断用例也通过 Vivado Simulator 2024.2，结束于 1305 ns。
+- 三指令边界测试进一步证明：Trap 前的老指令完成，当前 Store 被 kill 后只在 MRET 后提交一次，年轻 Store 在进入 Handler 前没有副作用；Icarus 与 Vivado Simulator 均通过，Vivado 仿真结束于 1785 ns。
+- 这仍是精确 Trap 的第一版：尚需实现地址未对齐和中断挂起行为。
+
+### 2026-09-16 阶段 1：非法指令异常
+
+- 译码器默认判定编码非法，只对已支持 RV32I/Zicsr 编码显式置 `inst_valid`，并严格检查 R/I 移位、Branch、Load、Store、JALR 和 SYSTEM 子编码。
+- `valid_ex` 表示“流水级中存在一条真实指令”，`inst_valid` 表示“该指令编码受支持”；非法指令仍进入 EX，并产生同步异常 cause 2，而不是变成 bubble。
+- 同步非法指令异常优先于异步 Timer 中断，并复用现有 `trap/kill/commit` 路径，保证故障指令和年轻指令不产生寄存器、CSR 或 Store 副作用。
+- `tb_interrupt` 验证一次 Trap、`mcause=2`、精确 `mepc` 和处理后继续执行；Docker/Icarus 完整回归为 `6 passed, 0 failed`，Vivado Simulator 2024.2 同项通过并结束于 2155 ns。
+- 完整回归同时暴露并修复了 `tb_pipeline` 的同步指令存储器初始化顺序：现在先填充存储器，再保持复位两个周期，避免把未知输出误当成真实取指。
+- 当前边界：CSR 地址/权限尚未参与非法检查；EBREAK 尚无 cause 3。地址未对齐异常已在下一小节完成。
+
+### 2026-09-16 阶段 1：地址未对齐异常
+
+- EX 阶段使用最终有效地址检查 LH/LHU、LW、SH 和 SW 的自然对齐；故障 Load 不写回目标寄存器，故障 Store 不拉高任何内存写使能。
+- 对 JAL、实际采用的 Branch 和 JALR 检查真实目标地址；RV32I 不含压缩指令，因此目标必须 4 字节对齐。未采用的条件分支不检查其未使用目标。
+- 异常优先级现为同步地址异常/非法指令/ECALL 高于异步 Timer；cause 分别为指令地址 0、Load 4、Store 6。
+- `tb_interrupt` 验证未对齐 LW 保留寄存器哨兵值、未对齐 SW 无写使能、未对齐 JAL 精确返回。Docker/Icarus 完整回归为 `6 passed, 0 failed`，Vivado Simulator 2024.2 同项通过并结束于 3205 ns。
+- 当前边界：尚未实现 `mtval`，也未检查 MRET 的 `mepc` 或 Trap 的 `mtvec` 配置错误；后续还需扩充 LH/SH、JALR、taken/not-taken Branch 的交叉用例。
+
+### 2026-09-16 阶段 1：Timer 请求保持
+
+- 新增 `mip.MTIP` pending：同步的一拍 `timer_int` 即使发生在 MIE/MTIE 关闭期间也会被锁存，开放后在最早的精确指令边界接收。
+- Timer 只有在赢得异常仲裁时才产生 `timer_irq_taken` 并清 pending；若与 ECALL 等同步异常同周期，先处理同步异常，Timer 保持到 MRET 后再处理。
+- 已使能且没有更高优先级异常时，原始 `timer_int` 仍可当拍被接收，不额外增加正常中断延迟。
+- `tb_interrupt` 覆盖 pending 的置位、跨 MIE/MTIE 屏蔽保持、接收后清除及 ECALL/Timer 冲突。Docker/Icarus 完整回归为 `6 passed, 0 failed`，Vivado Simulator 2024.2 同项通过并结束于 3735 ns。
+- 当前接口约定 `timer_int` 与 CPU `clk` 同步且表示事件脉冲。未来接入异步引脚或标准电平型 `mtime/mtimecmp` 时，必须增加 CDC 同步并重新确定中断源清除/确认协议。
+
+### 与后续 Cache 和分支预测器的控制关系
+
+- 中断、分支预测失败和 Cache 异常都需要同一套“重定向 PC + kill 年轻指令 + 禁止错误副作用”的恢复机制；当前 `valid/kill/commit` 是这三者共享的正确性基础。
+- 分支预测器以后需要把 `pred_taken/pred_target` 等预测信息随有效指令带到 EX，在预测失败时复用现有高优先级重定向和冲刷通路。
+- Cache 以后只能为有效访存发起请求，Store 必须在允许提交时才对外可见；Cache miss 产生的暂停还必须保持各级 `valid`，不能把同一请求重复发送。
+- 当前已具备 EX/MEM/WB 有效位、统一 PC 重定向优先级、副作用门控和 Timer pending；尚缺 IF/ID 与存储接口的 `valid/ready` 握手、未完成请求标识，以及分支预测元数据流水寄存器。
+
 尚未验证：
 
 - RV32I/Zicsr 官方一致性测试；
@@ -307,9 +352,9 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 
 ### P1 完成可移植 CPU 行为
 
-1. 为流水线增加有效位和明确的提交点，定义中断、异常、stall、flush、Store 和 CSR 写入的精确优先级。
+1. 已完成 EX/MEM/WB 第一版有效位和提交点；后续接入 IF/ID 与存储接口握手时继续扩展。
 2. `mie.MTIE` 门控已接入；下一步实现正确的 `mtvec` Direct/Vectored 处理和必要的特权状态。
-3. 严格检查 opcode、`funct3`、`funct7`、CSR 权限和地址对齐，并实现 illegal/misaligned Trap。
+3. opcode、`funct3/funct7` 严格检查以及 illegal/misaligned Trap 已完成；下一步补 CSR 地址/权限检查。
 4. 为指令和数据接口定义握手协议，或把“一拍同步返回、永不等待”写成稳定接口契约。
 5. 增加 UART 自检、随机/定向冒险测试和官方 RISC-V ISA 测试。
 

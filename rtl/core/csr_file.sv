@@ -18,12 +18,15 @@ module csr_file(
     input  logic        mret_valid,  // 执行 MRET 指令返回
     input  logic [31:0] trap_pc,     // 发生异常时的 PC (存入 mepc)
     input  logic [31:0] trap_cause,  // 异常或中断的原因 (存入 mcause)
+    input  logic        timer_int,   // 与 clk 同步的一拍 Timer 请求
+    input  logic        timer_irq_taken,
 
     // 提供给控制模块 (ctrl) 和 PC 取指模块的只读信号
     output logic [31:0] csr_mepc_out,
     output logic [31:0] csr_mtvec_out,
     output logic        csr_mstatus_mie, // 全局中断使能位 (mstatus 的第3位)
-    output logic        csr_mie_mtie     // 机器定时器中断使能位 (mie 的第7位)
+    output logic        csr_mie_mtie,    // 机器定时器中断使能位 (mie 的第7位)
+    output logic        csr_mip_mtip     // 机器定时器中断挂起位 (mip.MTIP)
 );
 
     // 定义内部实际存在的寄存器
@@ -33,12 +36,14 @@ module csr_file(
     logic [31:0] mcause;
     logic [31:0] mscratch;
     logic [31:0] mie;
+    logic        mtip_pending;
 
     // 输出直通信号
     assign csr_mepc_out    = mepc;
     assign csr_mtvec_out   = mtvec;
     assign csr_mstatus_mie = mstatus[3]; // MIE (Machine Interrupt Enable)
     assign csr_mie_mtie    = mie[7];     // MTIE (Machine Timer Interrupt Enable)
+    assign csr_mip_mtip    = mtip_pending;
 
     // 读 CSR 逻辑 (组合逻辑)
     always_comb begin
@@ -49,6 +54,7 @@ module csr_file(
             `CSR_MCAUSE:   csr_rdata = mcause;
             `CSR_MSCRATCH: csr_rdata = mscratch;
             `CSR_MIE:      csr_rdata = mie;
+            `CSR_MIP:      csr_rdata = {24'b0, mtip_pending, 7'b0};
             `CSR_MHARTID:  csr_rdata = 32'h0; // 单核系统直接返回 0
             default:       csr_rdata = 32'h0;
         endcase
@@ -90,6 +96,17 @@ module csr_file(
                 endcase
             end
         end
+    end
+
+    // 请求到来时无条件挂起，不受 MIE/MTIE 影响；只有 Timer 真正被接收才清除。
+    // 清除优先使单周期请求在“到达且立即接收”时不会残留第二次中断。
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst)
+            mtip_pending <= 1'b0;
+        else if (timer_irq_taken)
+            mtip_pending <= 1'b0;
+        else if (timer_int)
+            mtip_pending <= 1'b1;
     end
 
 endmodule

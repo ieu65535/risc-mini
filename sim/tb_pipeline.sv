@@ -79,9 +79,10 @@ module tb_pipeline();
         rst = 1;
         jump_occurred = 0;
         actual_jump_target = 32'h0;
-        #20;
 
-        // 2. 环境初始化 (清空指令/数据内存)
+        // 2. 先初始化同步存储器，再保持复位两个周期。
+        // 若先等待、后填充，第一次测试在复位释放时仍会看到未知指令，
+        // 严格译码会把它正确识别为非法指令并触发 Trap。
         for(int i=0; i<256; i++) begin 
             inst_mem[i] = 32'h00000013; // 填充 NOP
             data_mem[i] = 32'h0;
@@ -90,6 +91,8 @@ module tb_pipeline();
 
         // 内存预载
         if (mem_preload_en) data_mem[mem_preload_addr[9:2]] = mem_preload_data;
+
+        #20;
 
         // 3. 释放复位
         rst = 0;

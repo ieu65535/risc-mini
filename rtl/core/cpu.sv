@@ -19,6 +19,7 @@ logic [ 4:0] rd_addr;
 logic [31:0] rd_data;
 reg_file u_reg_file(
     .clk      (clk      ),
+    .rd_we    (1'b1     ),
     .rd_addr  (rd_addr  ),
     .rd_data  (rd_data  ),
     .rs1_addr (rs1_addr ),

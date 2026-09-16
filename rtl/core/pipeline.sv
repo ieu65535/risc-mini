@@ -1,4 +1,5 @@
 `include "micro.vh"
+`include "instructions.vh"
 module pipeline(
     input  logic clk,
     input  logic rst,
@@ -29,8 +30,11 @@ logic [31:0] csr_mepc;
 logic [31:0] csr_mtvec;
 logic        csr_mstatus_mie;
 logic        csr_mie_mtie;
+logic        csr_mip_mtip;
+logic        timer_irq_taken;
 logic        csr_we_ex;
 logic        is_ecall_ex;
+logic        is_illegal_ex;
 logic        is_mret_ex;
 logic [ 4:0] rd_addr_ex;
 logic [ 1:0] wb_sel_ex;
@@ -45,6 +49,22 @@ logic [ 4:0] rd_addr_mem;
 logic [31:0] csr_rdata_mem;
 logic [31:0] mem_data;
 logic [ 4:0] rd_addr_wb;
+logic        valid_ex;
+logic        valid_mem;
+logic        valid_wb;
+logic        kill_ex;
+logic        commit_ex;
+logic        commit_csr;
+logic        commit_wb;
+logic        inst_addr_misaligned_ex;
+logic        load_addr_misaligned_ex;
+logic        store_addr_misaligned_ex;
+
+// Timer/异常在 EX 阶段被接受时，当前 EX 指令必须取消；MRET 后从 mepc 重执行。
+assign kill_ex    = trap_valid;
+assign commit_ex  = valid_ex & ~kill_ex;
+assign commit_csr = csr_we_ex & commit_ex;
+assign commit_wb  = valid_wb & (rd_addr_wb != 5'b0);
 
 ctrl u_ctrl(
     .rs1_addr   (rs1_addr   ),
@@ -52,6 +72,7 @@ ctrl u_ctrl(
     .rd_addr_ex (rd_addr_ex ),
     .wb_sel_ex  (wb_sel_ex  ),
     .pc_sel_ex  (pc_sel_ex  ),
+    .valid_ex   (valid_ex   ),
     .alu_cond   (alu_cond   ),
     .alu_dout   (alu_dout   ),
     .pc_ex      (pc_ex      ),
@@ -60,14 +81,20 @@ ctrl u_ctrl(
     .target_pc  (target_pc  ),
 
     .is_ecall_ex(is_ecall_ex),
+    .is_illegal_ex(is_illegal_ex),
+    .inst_addr_misaligned_ex(inst_addr_misaligned_ex),
+    .load_addr_misaligned_ex(load_addr_misaligned_ex),
+    .store_addr_misaligned_ex(store_addr_misaligned_ex),
     .is_mret_ex (is_mret_ex ),
     .csr_mtvec  (csr_mtvec  ),
     .csr_mepc   (csr_mepc   ),
     .csr_mstatus_mie(csr_mstatus_mie),
     .csr_mie_mtie(csr_mie_mtie),
+    .csr_mip_mtip(csr_mip_mtip),
     .timer_int  (timer_int),  
     
     .trap_valid (trap_valid ),
+    .timer_irq_taken(timer_irq_taken),
     .mret_valid (mret_valid ),
     .trap_cause (trap_cause )
 );
@@ -123,6 +150,7 @@ logic [31:0] rd_data;
 
 reg_file u_reg_file(
     .clk      (clk         ),
+    .rd_we    (commit_wb   ),
     .rd_addr  (rd_addr_wb  ),
     .rd_data  (rd_data     ),
     .rs1_addr (rs1_addr    ),
@@ -162,7 +190,7 @@ csr_file u_csr_file(
     .rst             (rst),  
     
     // EX 阶段进行 CSR 读写
-    .csr_we          (csr_we_ex),
+    .csr_we          (commit_csr),
     .csr_waddr       (inst_ex[31:20]),
     .csr_wdata       (csr_wdata_ex),
     .csr_raddr       (inst_ex[31:20]),
@@ -173,12 +201,15 @@ csr_file u_csr_file(
     .mret_valid      (mret_valid),
     .trap_pc         (pc_ex),      // 当前触发异常的指令 PC
     .trap_cause      (trap_cause),
+    .timer_int       (timer_int),
+    .timer_irq_taken (timer_irq_taken),
     
     // 直通输出
     .csr_mepc_out    (csr_mepc),
     .csr_mtvec_out   (csr_mtvec),
     .csr_mstatus_mie (csr_mstatus_mie),
-    .csr_mie_mtie    (csr_mie_mtie)
+    .csr_mie_mtie    (csr_mie_mtie),
+    .csr_mip_mtip    (csr_mip_mtip)
 );
 
 logic        is_sra_ex;
@@ -192,6 +223,7 @@ logic [31:0] rs1_ex;
 logic [31:0] rs2_ex;
 always_ff @(posedge clk) begin
     if(rst | stall | pc_mis) begin
+        valid_ex     <= 1'b0;
         is_sra_ex   <= 1'b0;
         is_sub_ex   <= 1'b0;
         mem_mask_ex <= 4'b0;
@@ -208,25 +240,29 @@ always_ff @(posedge clk) begin
 
         csr_we_ex   <= 1'b0;
         is_ecall_ex <= 1'b0;
+        is_illegal_ex <= 1'b0;
         is_mret_ex  <= 1'b0;
     end else begin
+        // 非法编码仍是一条真实流水线事件，必须进入 EX 产生异常，而不是变成 bubble。
+        valid_ex     <= 1'b1;
         is_sra_ex   <= is_sra;
         is_sub_ex   <= is_sub;
-        mem_mask_ex <= mem_mask;
+        mem_mask_ex <= inst_valid ? mem_mask : 4'b0;
         alu_ctrl_ex <= alu_ctrl;
         op1_sel_ex  <= op1_sel;
         op2_sel_ex  <= op2_sel;
         inst_ex     <= inst;
         rs1_ex      <= rs1;
         rs2_ex      <= rs2;
-        rd_addr_ex  <= rd_en? inst[11:7] : 5'b0;
+        rd_addr_ex  <= (inst_valid && rd_en) ? inst[11:7] : 5'b0;
         wb_sel_ex   <= wb_sel;
         pc_ex       <= pc;
         pc_sel_ex   <= pc_sel;
 
-        csr_we_ex   <= csr_we;
-        is_ecall_ex <= is_ecall;
-        is_mret_ex  <= is_mret;
+        csr_we_ex   <= inst_valid & csr_we;
+        is_ecall_ex <= inst_valid & is_ecall;
+        is_illegal_ex <= ~inst_valid;
+        is_mret_ex  <= inst_valid & is_mret;
     end
 end
 
@@ -248,10 +284,35 @@ ex u_ex(
 
 );
 
+// RV32I 不含压缩指令，控制流目标必须 4 字节对齐。
+// 条件分支仅在实际采用时检查；JALR 先按规范清零 bit 0，再检查 bit 1。
+wire [31:0] imm_j_ex = {{11{inst_ex[31]}}, inst_ex[31], inst_ex[19:12],
+                        inst_ex[20], inst_ex[30:21], 1'b0};
+wire [31:0] imm_b_ex = {{19{inst_ex[31]}}, inst_ex[31], inst_ex[7],
+                        inst_ex[30:25], inst_ex[11:8], 1'b0};
+wire [31:0] jal_target_ex    = pc_ex + imm_j_ex;
+wire [31:0] branch_target_ex = pc_ex + imm_b_ex;
+wire [31:0] jalr_target_ex   = {alu_dout[31:1], 1'b0};
+
+assign inst_addr_misaligned_ex = valid_ex &&
+       (((pc_sel_ex == `PC_J)  && (|jal_target_ex[1:0])) ||
+        ((pc_sel_ex == `PC_B)  && alu_cond && (|branch_target_ex[1:0])) ||
+        ((pc_sel_ex == `PC_JR) && (|jalr_target_ex[1:0])));
+
+// 地址对齐在 EX 检查；Trap 会令 commit_ex=0，从而阻止 Load 写回和 Store 写使能。
+assign load_addr_misaligned_ex = valid_ex && (wb_sel_ex == `WB_MEM) &&
+       (((inst_ex[14:12] == `LH) || (inst_ex[14:12] == `LHU)) && alu_dout[0] ||
+        ((inst_ex[14:12] == `LW) && (|alu_dout[1:0])));
+
+assign store_addr_misaligned_ex = valid_ex &&
+       (((mem_mask_ex == 4'b0011) && alu_dout[0]) ||
+        ((mem_mask_ex == 4'b1111) && (|alu_dout[1:0])));
+
 logic [ 2:0] funct3_mem;
 
 always_ff @(posedge clk) begin
     if (rst) begin
+        valid_mem <= 1'b0;
         alu_dout_mem <= 32'h0;
         funct3_mem <= 3'b0; 
         wb_sel_mem <= `WB_ALU;
@@ -259,11 +320,12 @@ always_ff @(posedge clk) begin
         rd_addr_mem <= 5'b0;
         csr_rdata_mem <= 32'h0;
     end else begin
+        valid_mem <= commit_ex;
         alu_dout_mem <= alu_dout;
         funct3_mem   <= inst_ex[14:12]; 
         wb_sel_mem   <= wb_sel_ex;
         pc_mem       <= pc_ex;
-        rd_addr_mem  <= rd_addr_ex;
+        rd_addr_mem  <= commit_ex ? rd_addr_ex : 5'b0;
         csr_rdata_mem <= csr_rdata_ex;
     end
 end
@@ -272,7 +334,7 @@ lmb u_lmb(
     .alu_dout     (alu_dout     ),
     .alu_dout_mem (alu_dout_mem ),
     .rs2          (rs2_ex       ),
-    .mem_mask     (mem_mask_ex  ),
+    .mem_mask     (commit_ex ? mem_mask_ex : 4'b0),
     .funct3       (funct3_mem   ),
     .mem_dout     (mem_dout     ),
     .mem_din      (mem_din      ),
@@ -290,6 +352,7 @@ logic [31:0] csr_rdata_wb;
 
 always_ff @(posedge clk) begin
     if (rst) begin
+        valid_wb <= 1'b0;
         alu_dout_wb <= 32'h0;
         wb_sel_wb <= `WB_ALU;
         rd_addr_wb <= 5'b0;
@@ -297,9 +360,10 @@ always_ff @(posedge clk) begin
         mem_data_wb <= 32'h0;
         csr_rdata_wb <= 32'h0;
     end else begin
+        valid_wb <= valid_mem;
         alu_dout_wb <= alu_dout_mem;
         wb_sel_wb <= wb_sel_mem;
-        rd_addr_wb <= rd_addr_mem;
+        rd_addr_wb <= valid_mem ? rd_addr_mem : 5'b0;
         pc_wb <= pc_mem;
         mem_data_wb <= mem_data;
         csr_rdata_wb <= csr_rdata_mem;
