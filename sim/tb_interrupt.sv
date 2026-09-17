@@ -16,10 +16,14 @@ module tb_interrupt();
     logic [ 3:0] mem_we;
     integer      error_count = 0;
     integer      cycle_count = 0;
+    integer      retire_expected = 0;
+    integer      stall_expected = 0;
     integer      timer_trap_count = 0;
     integer      timer_trap_count_before = 0;
     integer      ecall_trap_count = 0;
     integer      ecall_trap_count_before = 0;
+    integer      breakpoint_trap_count = 0;
+    integer      breakpoint_trap_count_before = 0;
     integer      handler_pc_count = 0;
     integer      handler_pc_count_before = 0;
     integer      trap_stall_overlap_count = 0;
@@ -34,6 +38,8 @@ module tb_interrupt();
     integer      younger_store_before_handler_count_before = 0;
     integer      illegal_trap_count = 0;
     integer      illegal_trap_count_before = 0;
+    integer      csr_unsupported_trap_count = 0;
+    integer      csr_readonly_trap_count = 0;
     integer      inst_misaligned_count = 0;
     integer      inst_misaligned_count_before = 0;
     integer      load_misaligned_count = 0;
@@ -74,14 +80,20 @@ module tb_interrupt();
         forever #5 clk = ~clk; 
     end
 
-    // 周期级看门狗：正常测试低于 400 个周期，超过 450 周期即视为失去进展。
+    // 周期级看门狗：包含目标地址交叉测试后，超过 650 周期即视为失去进展。
     always @(posedge clk) begin
         if (rst) begin
             cycle_count <= 0;
+            retire_expected <= 0;
+            stall_expected <= 0;
         end else begin
             cycle_count <= cycle_count + 1;
-            if (cycle_count >= 450)
-                $fatal(1, "[TB TIMEOUT] tb_interrupt exceeded 450 cycles");
+            if (dut.valid_wb)
+                retire_expected <= retire_expected + 1;
+            if (dut.stall && !dut.pc_mis)
+                stall_expected <= stall_expected + 1;
+            if (cycle_count >= 650)
+                $fatal(1, "[TB TIMEOUT] tb_interrupt exceeded 650 cycles");
         end
     end
 
@@ -91,6 +103,7 @@ module tb_interrupt();
         if (rst) begin
             timer_trap_count <= 0;
             ecall_trap_count <= 0;
+            breakpoint_trap_count <= 0;
             handler_pc_count <= 0;
             trap_stall_overlap_count <= 0;
             store_commit_count <= 0;
@@ -98,6 +111,8 @@ module tb_interrupt();
             store_addr4_count <= 0;
             younger_store_before_handler_count <= 0;
             illegal_trap_count <= 0;
+            csr_unsupported_trap_count <= 0;
+            csr_readonly_trap_count <= 0;
             inst_misaligned_count <= 0;
             load_misaligned_count <= 0;
             store_misaligned_count <= 0;
@@ -106,12 +121,20 @@ module tb_interrupt();
                 timer_trap_count <= timer_trap_count + 1;
             if (dut.trap_valid && (dut.trap_cause === 32'd11))
                 ecall_trap_count <= ecall_trap_count + 1;
+            if (dut.trap_valid && (dut.trap_cause === 32'd3))
+                breakpoint_trap_count <= breakpoint_trap_count + 1;
             if (dut.pc === 32'h00000040)
                 handler_pc_count <= handler_pc_count + 1;
             if (dut.trap_valid && dut.stall)
                 trap_stall_overlap_count <= trap_stall_overlap_count + 1;
-            if (dut.trap_valid && (dut.trap_cause === 32'd2))
+            if (dut.trap_valid && (dut.trap_cause === 32'd2)) begin
                 illegal_trap_count <= illegal_trap_count + 1;
+                if (dut.pc_ex === 32'h00000128)
+                    csr_unsupported_trap_count <= csr_unsupported_trap_count + 1;
+                if ((dut.pc_ex === 32'h00000130) ||
+                    (dut.pc_ex === 32'h00000134))
+                    csr_readonly_trap_count <= csr_readonly_trap_count + 1;
+            end
             if (dut.trap_valid && (dut.trap_cause === 32'd0))
                 inst_misaligned_count <= inst_misaligned_count + 1;
             if (dut.trap_valid && (dut.trap_cause === 32'd4))
@@ -501,6 +524,13 @@ module tb_interrupt();
                      dut.u_reg_file.regs[22]);
             error_count = error_count + 1;
         end
+        if (dut.u_csr_file.mtval === 32'hffffffff)
+            $display("[PASS] mtval 保存非法指令原始编码");
+        else begin
+            $display("[FAIL] 非法指令 mtval=%h, 期望 ffffffff",
+                     dut.u_csr_file.mtval);
+            error_count = error_count + 1;
+        end
 
         // 【阶段 9】：LW 地址未按 4 字节对齐时产生 cause=4，且不得写回 rd。
         $display("[TB PHASE] Load address misaligned trap");
@@ -536,6 +566,12 @@ module tb_interrupt();
             $display("[FAIL] LW 异常现场错误: cause=%h mepc_next=%h x24=%h",
                      dut.u_reg_file.regs[4], dut.u_reg_file.regs[5],
                      dut.u_reg_file.regs[24]);
+            error_count = error_count + 1;
+        end
+        if (dut.u_csr_file.mtval === 32'd1)
+            $display("[PASS] mtval 保存未对齐 Load 的有效地址 1");
+        else begin
+            $display("[FAIL] 未对齐 Load mtval=%h, 期望 1", dut.u_csr_file.mtval);
             error_count = error_count + 1;
         end
 
@@ -575,6 +611,12 @@ module tb_interrupt();
                      dut.u_reg_file.regs[25]);
             error_count = error_count + 1;
         end
+        if (dut.u_csr_file.mtval === 32'd2)
+            $display("[PASS] mtval 保存未对齐 Store 的有效地址 2");
+        else begin
+            $display("[FAIL] 未对齐 Store mtval=%h, 期望 2", dut.u_csr_file.mtval);
+            error_count = error_count + 1;
+        end
 
         // 【阶段 11】：RV32I 的控制流目标必须按 4 字节对齐。
         $display("[TB PHASE] Instruction address misaligned trap");
@@ -602,6 +644,13 @@ module tb_interrupt();
             $display("[FAIL] 指令地址异常现场错误: cause=%h mepc_next=%h x26=%h",
                      dut.u_reg_file.regs[4], dut.u_reg_file.regs[5],
                      dut.u_reg_file.regs[26]);
+            error_count = error_count + 1;
+        end
+        if (dut.u_csr_file.mtval === 32'h000000f2)
+            $display("[PASS] mtval 保存未对齐取指目标 0xF2");
+        else begin
+            $display("[FAIL] 指令地址异常 mtval=%h, 期望 000000f2",
+                     dut.u_csr_file.mtval);
             error_count = error_count + 1;
         end
 
@@ -652,6 +701,163 @@ module tb_interrupt();
         else begin
             $display("[FAIL] 延后中断返回错误: cause=%h x27=%h",
                      dut.u_reg_file.regs[4], dut.u_reg_file.regs[27]);
+            error_count = error_count + 1;
+        end
+        if (dut.u_csr_file.mtval === 32'd0)
+            $display("[PASS] ECALL/Timer 的 mtval 为 0");
+        else begin
+            $display("[FAIL] ECALL/Timer mtval=%h, 期望 0", dut.u_csr_file.mtval);
+            error_count = error_count + 1;
+        end
+
+        // 【阶段 13】：未实现 CSR 应抛出 illegal；只读 CSR 允许纯读取，
+        // 但有写入意图的 CSRRW/CSRRS 必须抛出 illegal，不能产生 GPR 副作用。
+        $display("[TB PHASE] CSR address and read-only access legality");
+        wait (inst_addr === 32'h00000104);
+        @(negedge clk);
+        inst_mem[65] = 32'h01c0006f; // 104: jal x0, 0x120
+        inst_mem[72] = 32'h05a00e93; // 120: addi x29, x0, 0x5a
+        inst_mem[73] = 32'h06600f93; // 124: addi x31, x0, 0x66
+        inst_mem[74] = 32'h30602ef3; // 128: csrr x29, 0x306 (未实现)
+        inst_mem[75] = 32'hf1402f73; // 12C: csrr x30, mhartid (合法纯读取)
+        inst_mem[76] = 32'hf1471ef3; // 130: csrrw x29, mhartid, x14 (非法写)
+        inst_mem[77] = 32'h34472ff3; // 134: csrrs x31, mip, x14 (非法写)
+        inst_mem[78] = 32'h34407f73; // 138: csrrci x30, mip, 0 (合法纯读取)
+        inst_mem[79] = 32'h00200d93; // 13C: addi x27, x0, 2
+        inst_mem[80] = 32'h0000006f; // 140: jal x0, 0
+        repeat(70) @(posedge clk);
+
+        if (csr_unsupported_trap_count == 1)
+            $display("[PASS] 未实现 CSR 地址触发一次 cause=2");
+        else begin
+            $display("[FAIL] 未实现 CSR Trap 次数=%0d, 期望=1",
+                     csr_unsupported_trap_count);
+            error_count = error_count + 1;
+        end
+        if (csr_readonly_trap_count == 2)
+            $display("[PASS] mhartid 与 mip 的非法写入各触发一次 cause=2");
+        else begin
+            $display("[FAIL] 只读 CSR 写入 Trap 次数=%0d, 期望=2",
+                     csr_readonly_trap_count);
+            error_count = error_count + 1;
+        end
+        if ((dut.u_reg_file.regs[29] === 32'h0000005a) &&
+            (dut.u_reg_file.regs[31] === 32'h00000066))
+            $display("[PASS] 非法 CSR 指令没有覆盖目标寄存器");
+        else begin
+            $display("[FAIL] 非法 CSR 写回: x29=%h x31=%h",
+                     dut.u_reg_file.regs[29], dut.u_reg_file.regs[31]);
+            error_count = error_count + 1;
+        end
+        if ((dut.u_reg_file.regs[30] === 32'd0) &&
+            (dut.u_reg_file.regs[27] === 32'd2) &&
+            (dut.u_reg_file.regs[5] === 32'h00000138))
+            $display("[PASS] 只读 CSR 纯读取与异常返回均正确");
+        else begin
+            $display("[FAIL] CSR 读取/返回错误: x30=%h x27=%h mepc_next=%h",
+                     dut.u_reg_file.regs[30], dut.u_reg_file.regs[27],
+                     dut.u_reg_file.regs[5]);
+            error_count = error_count + 1;
+        end
+
+        // 【阶段 14】：软件可读写 mtval；EBREAK 为 cause=3，并由同一 Handler 跳过。
+        $display("[TB PHASE] EBREAK and mtval CSR");
+        wait (inst_addr === 32'h00000140);
+        breakpoint_trap_count_before = breakpoint_trap_count;
+        @(negedge clk);
+        inst_mem[80] = 32'h0100006f; // 140: jal x0, 0x150
+        inst_mem[84] = 32'h05a00e93; // 150: addi x29, x0, 0x5a
+        inst_mem[85] = {12'h343, 5'd29, 3'b001, 5'd0, 7'h73}; // csrw mtval, x29
+        inst_mem[86] = {12'h343, 5'd0, 3'b010, 5'd30, 7'h73}; // csrr x30, mtval
+        inst_mem[87] = 32'h00100073; // 15C: ebreak
+        inst_mem[88] = {12'h343, 5'd0, 3'b010, 5'd31, 7'h73}; // csrr x31, mtval
+        inst_mem[89] = 32'h00300d93; // 164: addi x27, x0, 3
+        inst_mem[90] = 32'h0000006f; // 168: jal x0, 0
+        repeat(40) @(posedge clk);
+
+        if ((breakpoint_trap_count - breakpoint_trap_count_before) == 1 &&
+            dut.u_reg_file.regs[4] === 32'd3 &&
+            dut.u_reg_file.regs[5] === 32'h00000160 &&
+            dut.u_reg_file.regs[27] === 32'd3)
+            $display("[PASS] EBREAK cause=3、精确 mepc 与 MRET 返回");
+        else begin
+            $display("[FAIL] EBREAK: count=%0d cause=%h mepc_next=%h x27=%h",
+                     breakpoint_trap_count - breakpoint_trap_count_before,
+                     dut.u_reg_file.regs[4], dut.u_reg_file.regs[5],
+                     dut.u_reg_file.regs[27]);
+            error_count = error_count + 1;
+        end
+        if ((dut.u_reg_file.regs[30] === 32'h0000005a) &&
+            (dut.u_reg_file.regs[31] === 32'd0) &&
+            (dut.u_csr_file.mtval === 32'd0))
+            $display("[PASS] 软件写入 mtval，可读回；EBREAK Trap 清为 0");
+        else begin
+            $display("[FAIL] mtval CSR: before=%h after=%h csr=%h",
+                     dut.u_reg_file.regs[30], dut.u_reg_file.regs[31],
+                     dut.u_csr_file.mtval);
+            error_count = error_count + 1;
+        end
+
+        // 【阶段 15】：JALR 清 bit0 后的未对齐目标进入 mtval。
+        $display("[TB PHASE] JALR misaligned target mtval");
+        wait (inst_addr === 32'h00000168);
+        inst_misaligned_count_before = inst_misaligned_count;
+        @(negedge clk);
+        inst_mem[90] = 32'h0080006f; // 168: jal x0, 0x170
+        inst_mem[92] = 32'h08200313; // 170: addi x6, x0, 0x82
+        inst_mem[93] = 32'h00030067; // 174: jalr x0, 0(x6)，目标 0x82
+        inst_mem[94] = 32'h00400d93; // 178: addi x27, x0, 4
+        inst_mem[95] = 32'h0000006f; // 17C: jal x0, 0
+        repeat(35) @(posedge clk);
+        if ((inst_misaligned_count - inst_misaligned_count_before) == 1 &&
+            dut.u_csr_file.mtval === 32'h00000082 &&
+            dut.u_reg_file.regs[5] === 32'h00000178 &&
+            dut.u_reg_file.regs[27] === 32'd4)
+            $display("[PASS] JALR 未对齐目标、精确返回均正确");
+        else begin
+            $display("[FAIL] JALR mtval=%h mepc_next=%h x27=%h count=%0d",
+                     dut.u_csr_file.mtval, dut.u_reg_file.regs[5],
+                     dut.u_reg_file.regs[27],
+                     inst_misaligned_count - inst_misaligned_count_before);
+            error_count = error_count + 1;
+        end
+
+        // 【阶段 16】：实际采用的条件分支目标未对齐，必须记录该目标。
+        $display("[TB PHASE] Taken Branch misaligned target mtval");
+        wait (inst_addr === 32'h0000017c);
+        inst_misaligned_count_before = inst_misaligned_count;
+        @(negedge clk);
+        inst_mem[95] = 32'h0040006f; // 17C: jal x0, 0x180
+        inst_mem[96] = 32'h00100313; // 180: addi x6, x0, 1
+        inst_mem[97] = 32'h00630163; // 184: beq x6, x6, +2，目标 0x186
+        inst_mem[98] = 32'h00631163; // 188: bne x6, x6, +2，不采用则不得报错
+        inst_mem[99] = 32'h00500d93; // 18C: addi x27, x0, 5
+        inst_mem[100] = 32'h0000006f; // 190: jal x0, 0
+        repeat(35) @(posedge clk);
+        if ((inst_misaligned_count - inst_misaligned_count_before) == 1 &&
+            dut.u_csr_file.mtval === 32'h00000186 &&
+            dut.u_reg_file.regs[5] === 32'h00000188 &&
+            dut.u_reg_file.regs[27] === 32'd5)
+            $display("[PASS] Taken Branch 未对齐目标报错，未采用的分支不误报");
+        else begin
+            $display("[FAIL] Branch mtval=%h mepc_next=%h x27=%h count=%0d",
+                     dut.u_csr_file.mtval, dut.u_reg_file.regs[5],
+                     dut.u_reg_file.regs[27],
+                     inst_misaligned_count - inst_misaligned_count_before);
+            error_count = error_count + 1;
+        end
+
+        // 多次异常/中断及 Trap-stall 重合后，计数器仍应只认真实退休和有效暂停。
+        if ((dut.u_csr_file.mcycle === cycle_count) &&
+            (dut.u_csr_file.minstret === retire_expected) &&
+            (dut.u_csr_file.stall_cycles === stall_expected) &&
+            (retire_expected < cycle_count))
+            $display("[PASS] 异常/中断场景下 cycle、instret、stall 计数精确");
+        else begin
+            $display("[FAIL] 性能计数器: cycle=%0d/%0d instret=%0d/%0d stall=%0d/%0d",
+                     dut.u_csr_file.mcycle, cycle_count,
+                     dut.u_csr_file.minstret, retire_expected,
+                     dut.u_csr_file.stall_cycles, stall_expected);
             error_count = error_count + 1;
         end
 

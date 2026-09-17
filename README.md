@@ -2,33 +2,38 @@
 
 这是一个用 SystemVerilog 实现的 32 位 RISC-V 教学 CPU/SoC。`NailongBranch2` 是团队当前完成度最高的历史分支，也是后续 CPU 开发的代码基线。
 
-> 基线说明：本文依据 `NailongBranch2` 分支提交 `73970f7` 的 205 个受版本控制文件，于 2026-09-10 完成静态审计，并使用 Vivado Simulator 2024.2 做了独立编译、展开和行为仿真。代码、构建脚本和测试结果优先于旧设计报告与架构图。当前版本适合作为继续开发的起点，但尚不能视为通过 ISA 一致性、FreeRTOS、综合时序或板级验收的发布版本。
+阶段提交与完成内容见 [工作日志](工作日志.md)。
+
+> 历史基线：2026-09-10 曾依据提交 `73970f7` 的 205 个受版本控制文件完成静态审计，并用 Vivado Simulator 2024.2 独立编译、展开和仿真。那是当时的快照；当前状态以下文和实际工作区为准。代码、构建脚本和测试结果优先于旧设计报告与架构图。本项目尚不能视为通过完整 ISA 一致性、FreeRTOS、综合时序或板级验收的发布版本。
 
 ## 当前结论
 
 - 当前 SoC 顶层是 [`rtl/soc.sv`](rtl/soc.sv)，当前 CPU 主线是 [`rtl/core/pipeline.sv`](rtl/core/pipeline.sv)。
 - [`rtl/core/cpu.sv`](rtl/core/cpu.sv) 和 [`rtl/core/data_path.sv`](rtl/core/data_path.sv) 是未进入现有 SoC 与仿真文件表的旧实现，不应作为新功能入口。
 - 主线核心是 RV32、单发射、顺序执行设计，包含取指/译码前端、EX、MEM、WB 四个逻辑处理阶段和三组级间寄存器。
-- RTL 按设计意图覆盖 37 条常用 RV32I 指令，并加入六条 Zicsr 指令、ECALL、MRET、非法指令异常和一个实验性的机器定时器中断入口。
+- RTL 按设计意图覆盖 37 条整数/控制/访存指令及 RV32I 的 FENCE，并加入六条 Zicsr 指令、ECALL、EBREAK、MRET、非法/未对齐异常和一个实验性的机器定时器中断入口。
 - UART、片上 ROM 和片上 RAM 已接入 SoC；GPIO 只有未使用的内部寄存器占位，定时器外设尚不存在。
 - CPU 核心保留 `timer_int` 端口；当前 `soc` 将其明确固定为 0，避免悬空值进入控制逻辑。SoC 仍没有可用的定时器中断源。
 - FreeRTOS 目录是混合版本、混合平台的参考移植素材：内核文件标记为 FreeRTOS Kernel V11.1.0，而配置、demo 与平台文件多为 V202212.00，并混有 QEMU `virt` 和另一套 SoC 的外设假设；尚未完成针对当前 SoC 的移植。
+
+**阶段 1 验收边界：**`make phase1-behavior` 已串行通过 11 项项目回归、固定上游 RV32UI 40 项以及长序列、随机指令和 Trap 交叉测试；这证明的是当前 **M-only、固定一拍同步 ROM/RAM** 的行为基线。五级流水、可等待总线、BTB/BHT、两路 Cache、DDR、CoreMark、ACT4、PDS 时序与上板仍未完成。赛题目标和下一阶段入口见 [升级计划](升级计划.md)。
 
 ## 功能状态
 
 | 子系统 | 当前状态 | 边界 |
 | --- | --- | --- |
-| RV32I 整数通路 | RTL 已实现，项目回归通过 | opcode、`funct3/funct7` 已严格检查；尚未做 riscv-arch-test |
-| Zicsr | 实验性实现 | 六条 CSR 读改写指令有数据通路，但 CSR 权限、只读属性和非法访问异常未实现 |
-| ECALL / MRET / 非法指令 | 第一版精确 Trap 已验证 | 支持 M 模式 ECALL cause 11、非法指令 cause 2 和 MRET；EBREAK 尚未单独实现 cause 3 |
-| 地址未对齐异常 | 第一版已验证 | 支持 RV32I 控制流目标 cause 0、Load cause 4、Store cause 6；尚无 `mtval` |
+| RV32I 整数通路 | RTL 已实现，项目回归通过 | opcode、`funct3/funct7` 已严格检查；FENCE 仅在当前一拍顺序访存模型下等效空操作；尚未做 riscv-arch-test |
+| Zicsr | M 模式第一版已验证 | 已实现 CSR 地址白名单、只读 CSR 写入检查；尚无 U/S 模式及完整 CSR 字段约束 |
+| ECALL / EBREAK / MRET / 非法指令 | 第一版精确 Trap 已验证 | 支持 M 模式 ECALL cause 11、EBREAK cause 3、非法指令 cause 2 和 MRET |
+| 地址未对齐异常 | 第一版已验证 | 支持 RV32I 控制流目标 cause 0、Load cause 4、Store cause 6；`mtval` 保存故障值 |
+| 性能计数器 | RTL 与定向仿真已验证 | 64 位 cycle、instret 和自定义 stall；尚未综合测资源或时序 |
 | 机器定时器中断 | 核心第一版精确提交与请求保持已验证，SoC 暂时禁用 | 要求 `mstatus.MIE` 与 `mie.MTIE`；具有 `mip.MTIP` pending，但 SoC 仍没有同步器和 CLINT/mtime |
 | 分支与冒险 | RTL 已实现 | Branch/JAL 静态预测跳转，JALR 在 EX 纠正；有 EX/MEM/WB 前递和 load-use 停顿 |
 | UART | RTL 与 hello 软件已接入 | 尚无自检 UART testbench，也没有本次板级串口记录 |
-| ROM / RAM | RTL 已实现 | 物理容量各 4 KiB，与镜像生成和链接脚本不一致 |
+| ROM / RAM | RTL 已实现 | 物理容量各 4 KiB；`.mem` 生成已与 ROM 对齐，但链接脚本仍声明 128 KiB ROM/RAM |
 | GPIO | 未实现 | `PORTA` 仅声明，未做地址映射、读写或顶层引脚 |
 | FreeRTOS | 未集成 | 目录内容仍面向 QEMU virt，不能直接在本 SoC 启动 |
-| FPGA 工程 | 只有 RTL 和 XDC | 仓库没有 `.xpr`、器件型号、综合/实现报告或 bitstream |
+| FPGA 工程 | 只有 RTL 和旧 Xilinx XDC | 仓库没有目标盘古100Pro+的 PDS 工程、约束、综合/实现报告或 bitstream；旧 XDC 不能直接用于 PG2L100H |
 
 ## 当前硬件结构
 
@@ -55,7 +60,7 @@
 | `rtl/soc.sv` | SoC 顶层，连接复位、总线、UART 和 `pipeline` |
 | `rtl/core/pipeline.sv` | 当前 CPU 顶层，组织控制、数据通路和三组级间寄存器 |
 | `rtl/core/pc_reg.sv` | PC、静态跳转预测、停顿与重定向 |
-| `rtl/core/decoder.sv` | RV32I 主 opcode、Zicsr、ECALL、MRET 译码 |
+| `rtl/core/decoder.sv` | RV32I 主 opcode、Zicsr、ECALL、EBREAK、MRET 译码 |
 | `rtl/core/ctrl.sv` | load-use 停顿、分支纠正、Trap/MRET 重定向 |
 | `rtl/core/reg_file.sv` | 32 × 32 位、2 读 1 写寄存器堆 |
 | `rtl/core/forward.sv` | EX、MEM、WB 到前端操作数的旁路 |
@@ -81,10 +86,11 @@
 - Load：LB、LH、LW、LBU、LHU
 - Store：SB、SH、SW
 - 跳转与高位立即数：JAL、JALR、LUI、AUIPC
+- 存储顺序：FENCE（当前无未完成请求的顺序单核中不额外等待）
 
-上述清单表示 RTL 的译码和数据通路意图，不等同于通过 RV32I compliance。译码器现严格检查支持指令的 opcode、`funct3` 和 `funct7`；未知或不支持的编码进入同步非法指令异常（cause 2），不会再静默表现为 NOP 或被别名为已有运算。FENCE/FENCE.I 尚未实现；EBREAK 目前也进入 cause 2，尚未实现独立的 breakpoint cause 3。
+上述清单表示 RTL 的译码和数据通路意图，不等同于通过 RV32I compliance。译码器现严格检查支持指令的 opcode、`funct3` 和 `funct7`；未知或不支持的编码进入同步非法指令异常（cause 2），不会再静默表现为 NOP 或被别名为已有运算。`EBREAK` 单独产生 breakpoint cause 3。FENCE 的合法编码会退休且无寄存器/存储器副作用；引入 Cache、DMA 或可等待总线时必须重新实现排序等待。独立扩展 Zifencei 的 FENCE.I 尚未实现，现产生非法指令异常。
 
-当前核心会检查非对齐访问：RV32I 控制流目标必须按 4 字节对齐，LH/SH 按 2 字节对齐，LW/SW 按 4 字节对齐；违例分别产生 cause 0、4、6，并由提交门控阻止故障指令产生副作用。JALR 先按规范清零目标 bit 0，再检查 bit 1。当前没有 `mtval`，也未覆盖错误配置的 `mtvec/mepc` 返回目标。数据通路是小端序。
+当前核心会检查非对齐访问：RV32I 控制流目标必须按 4 字节对齐，LH/SH 按 2 字节对齐，LW/SW 按 4 字节对齐；违例分别产生 cause 0、4、6，并由提交门控阻止故障指令产生副作用。JALR 先按规范清零目标 bit 0，再检查 bit 1。`mtval` 记录故障目标或访存地址；`mtvec` 基址和 `mepc` 已对齐，但尚未检测指向未映射/不可执行存储区域的目标。数据通路是小端序。
 
 ### Zicsr 和 CSR
 
@@ -92,16 +98,20 @@
 
 | CSR | 地址 | 当前行为 |
 | --- | ---: | --- |
-| `mstatus` | `0x300` | 存储 32 位；Trap/MRET 仅显式处理 MIE bit 3 和 MPIE bit 7 |
-| `mie` | `0x304` | 可读写；`MTIE` bit 7 已接入机器定时器中断使能判断 |
-| `mtvec` | `0x305` | 可读写；Trap 直接跳到原始值，不解析 Direct/Vectored 模式 |
+| `mstatus` | `0x300` | 仅 MIE bit 3 和 MPIE bit 7 可写；MPP bits 12:11 固定为 M 模式 `11`，其余未实现位读 0；Trap/MRET 更新 MIE/MPIE |
+| `mie` | `0x304` | 仅 `MTIE` bit 7 可写并参与 Timer 门控，其他未实现中断使能位读 0 |
+| `mtvec` | `0x305` | BASE 为 4 字节对齐地址；MODE=0 Direct 时所有 Trap 到 BASE，MODE=1 Vectored 时异步中断到 BASE+4×cause、同步异常仍到 BASE；写入保留 MODE=2/3 会读回 MODE=0 |
 | `mscratch` | `0x340` | 可读写 |
-| `mepc` | `0x341` | 可读写；Trap 时保存 `pc_ex` |
-| `mcause` | `0x342` | 可读写；当前生成指令地址未对齐 0、非法指令 2、Load 未对齐 4、Store 未对齐 6、ECALL 11 和机器定时器中断 `0x80000007` |
-| `mip` | `0x344` | `MTIP` bit 7 只读反映已锁存 Timer 请求；请求真正被接收后由硬件清除 |
+| `mepc` | `0x341` | 软件写入和 Trap 保存时清零 bits 1:0；MRET 从对齐地址返回（本核 IALIGN=32） |
+| `mcause` | `0x342` | 可读写；当前生成指令地址未对齐 0、非法指令 2、EBREAK 3、Load 未对齐 4、Store 未对齐 6、ECALL 11 和机器定时器中断 `0x80000007` |
+| `mtval` | `0x343` | 可读写；Trap 时保存非法编码、未对齐目标或访存地址；EBREAK/ECALL/Timer 写 0 |
+| `mip` | `0x344` | `MTIP` bit 7 只读反映已锁存 Timer 请求；CSR 写入会产生非法指令异常；请求真正被接收后由硬件清除 |
 | `mhartid` | `0xF14` | 固定读 0 |
+| `cycle/cycleh`、`instret/instreth` | `0xC00/0xC80`、`0xC02/0xC82` | 64 位计数的只读低/高半字 |
+| `mcycle/mcycleh`、`minstret/minstreth` | `0xB00/0xB80`、`0xB02/0xB82` | 同一计数器的机器态可写别名 |
+| 自定义 `stall_cycles/stall_cyclesh` | `0xCC0/0xCC1` | 有效暂停周期的只读低/高半字 |
 
-`cycle/cycleh` 虽有宏定义，但 CSR 文件没有实现，读取会返回默认值 0。除 `mip.MTIP` 外，其余 `mip` 位、`mtval`、MPP 等完整特权状态尚未实现，也没有 CSR 地址/权限异常。
+其他未列出的 CSR 地址仍产生非法指令异常（cause 2）。`mhartid`、`mip`、`cycle/instret` 和自定义 stall CSR 只允许纯读取：`CSRRS/CSRRC` 的 `rs1=x0` 或立即数形式的 `uimm=0` 不尝试写入，因此合法。`mtvec/mstatus/mie/mepc` 已约束当前实现的字段；`time`、除 `mip.MTIP` 外的其他 `mip` 位及 U/S 特权模式尚未实现。MPP 虽读回 M 模式，但没有 U/S 模式切换机制。
 
 ### 控制流和冒险
 
@@ -154,14 +164,14 @@ UART 为 8N1，无 FIFO。`rxd` 在 `uart_rx` 内经过两级同步。当前 `RX
 
 ## 时钟、复位与 FPGA 约束
 
-- [`rtl/phosphor_zynq.xdc`](rtl/phosphor_zynq.xdc) 声明 20 ns 周期，即 50 MHz。
+- [`rtl/phosphor_zynq.xdc`](rtl/phosphor_zynq.xdc) 是旧 Xilinx 板卡约束，声明 20 ns 周期，即 50 MHz；它不描述目标盘古100Pro+的时钟或管脚。
 - 顶层端口为 `clk`、低有效 `rst_n`、`rxd`、`txd`。
-- 当前引脚为 `clk/U18`、`rst_n/N16`、`rxd/T19`、`txd/J15`，均使用 LVCMOS33。
+- 旧 XDC 中的引脚为 `clk/U18`、`rst_n/N16`、`rxd/T19`、`txd/J15`，均使用 LVCMOS33；这些编号不能套用于 PG2L100H。
 - `reset_sync` 对外部复位异步置位、同步两拍释放，并生成核心内部高有效 `rst`。
 - PC 和级间寄存器使用同步高有效复位，CSR 文件使用异步高有效复位，GPR 没有复位。
 - PC 复位为 `0xFFFF_FFFC`，组合的下一取指地址因此从 `0x0000_0000` 开始。
 
-仓库没有 Vivado `.xpr` 或器件型号，无法从当前文件确认活动 source set、约束集、综合/实现 run 或 XDC 是否对应最终板卡。创建工程时，顶层应设为 `soc`，并先核对器件、板卡原理图、时钟源和四个管脚。
+仓库没有目标板 PDS 工程或实现报告。现有仿真 SoC 顶层为 `soc`；创建盘古100Pro+工程前，需按随板原理图和例程核对 `PG2L100H-6FBG676`、时钟、复位及引脚，并为 DDR/外设集成确认最终顶层与 PDS 约束，不能直接导入旧 XDC。
 
 ## 软件与镜像构建
 
@@ -213,6 +223,11 @@ make -B -C sim TB_MOUDLE=tb_dhazards.sv
 make -B -C sim TB_MOUDLE=tb_control.sv
 make -B -C sim TB_MOUDLE=tb_csr.sv
 make -B -C sim TB_MOUDLE=tb_interrupt.sv
+make -B -C sim TB_MOUDLE=tb_perf_counters.sv
+make -B -C sim TB_MOUDLE=tb_mtvec.sv
+make -B -C sim TB_MOUDLE=tb_csr_fields.sv
+make -B -C sim TB_MOUDLE=tb_halfword.sv
+make -B -C sim TB_MOUDLE=tb_fence.sv
 make -B -C sim TB_MOUDLE=tb_soc.sv
 ```
 
@@ -222,14 +237,22 @@ make -B -C sim TB_MOUDLE=tb_soc.sv
 # 指令、冒险、控制流、CSR 和 SoC smoke test
 make regression
 
-# 在上述测试之外加入当前尚未闭环的异常/中断测试
+# 在上述测试之外加入异常/中断、性能计数器、CSR 字段及半字访存测试
 make regression-all
+
+# 上游 RV32UI 40 项，以及本地长序列和 4 种子随机指令混合
+make isa-smoke
+make trap-mix
+make phase1-behavior
 
 # 只在调试单项测试时生成波形
 make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 ```
 
-每个 CPU testbench 只有在全部检查通过后才输出唯一的 `[TB PASS]` 标记；失败会累计并调用 `$fatal`。回归脚本还会检查进程状态、失败文本、超时、完成标记以及 SoC 的 `Hello, World!` UART 输出。标准回归保存到 `sim/regression.log`，含中断测试的完整回归保存到 `sim/regression-all.log`，便于宿主机直接检查。
+每个 CPU testbench 只有在全部检查通过后才输出唯一的 `[TB PASS]` 标记；失败会累计并调用 `$fatal`。回归脚本还会检查进程状态、失败文本、超时、完成标记以及 SoC 的 `Hello, World!` UART 输出。标准回归保存到 `sim/regression.log`，含中断和计数器测试的完整回归保存到 `sim/regression-all.log`，便于宿主机直接检查。
+
+`phase1-behavior` 串行执行 `regression-all → isa-smoke → trap-mix`，任一项失败即停止。`isa-smoke` 首次运行需容器能访问 GitHub，脚本获取固定提交 `riscv-tests@2ebecad997fa58cd9e5724340ba75aa4b59bd1d0` 到临时目录，并用容器中的 RISC-V GCC/Icarus 编译运行。已有该提交的本地检出时，可设置 `RISCV_TESTS_DIR=/path/to/riscv-tests` 避免网络获取；脚本会核对提交哈希。上游测试源码不复制到本仓库。
+同一命令还运行本地固定种子长序列和 4 组可复现的随机指令混合；长序列使用 `+MAX_CYCLES` 扩大单项测试的超时上限，不会改变上游 40 项的默认 8000 周期保护。
 
 ## FreeRTOS 目录的真实状态
 
@@ -239,7 +262,7 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - FreeRTOS 配置使用 25 MHz，而 XDC 和 `mini_libc` 使用 50 MHz；
 - 配置期望 CLINT `mtime/mtimecmp` 位于 `0x0200_0000` 区域，当前 SoC 没有 CLINT；
 - 示例代码使用 `0x1000_0000` 的 NS16550，另一些 UART 宏使用 `0x4000_4000`，当前 UART 实际位于 `0x4000_0000` 且寄存器布局不同；
-- `main.c` 默认把 `mtvec` 配为 vectored 模式，当前核心只把 `mtvec` 原值当作 direct 入口；
+- `main.c` 默认把 `mtvec` 配为 vectored 模式，核心现支持该入口计算；但现有 FreeRTOS 镜像、向量表处理程序和实际中断源尚未做端到端验证；
 - 80 KiB heap 和 128 KiB 链接 RAM 都超过实际 4 KiB RAM；
 - SoC 当前将 `timer_int` 固定为 0；核心已有 `mie.MTIE`、`mip.MTIP` 和精确提交，但仍没有板级中断源、CDC 同步与 CLINT/mtime。
 - FreeRTOS Makefile 没有编译仓内 `start.S`，启动和 `.data/.bss` 初始化依赖 picolibc CRT；它还会无条件编译 full-demo 文件集合，不能把默认 blinky 选择等同于精简镜像。
@@ -257,7 +280,13 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 | `sim/tb_dhazards.sv` | EX/MEM/WB 前递、load-use、Store、栈保存、memcpy |
 | `sim/tb_control.sv` | 条件分支预测/纠正、JAL、JALR 与 Flush |
 | `sim/tb_csr.sv` | CSR 读写、立即数形式和 CSR 数据前递 |
-| `sim/tb_interrupt.sv` | ECALL、MRET、非法指令、精确提交、mcause/mepc 和外部 timer 脉冲 |
+| `sim/tb_interrupt.sv` | ECALL、EBREAK、MRET、非法/未对齐异常、精确提交、mcause/mepc/mtval 和外部 timer 脉冲 |
+| `sim/tb_perf_counters.sv` | cycle/instret/stall 计数、CSR 别名、机器态高低半字写入及 64 位进位 |
+| `sim/tb_mtvec.sv` | Direct/Vectored 入口、同步异常与 Timer 向量区分、保留 MODE 的 WARL 读回 |
+| `sim/tb_csr_fields.sv` | M-only 的 mstatus/mie 字段、mepc 对齐及 Trap/MRET 状态恢复 |
+| `sim/tb_halfword.sv` | 同步 RAM 下 LH/LHU/SH 高低半字、符号扩展、写掩码与未对齐无副作用 |
+| `sim/tb_isa_smoke.sv` | 上游 RV32UI、本地长序列及随机指令混合的同步 ROM/RAM 适配、结果码和宿主机 RAM 参考值检测 |
+| `sim/isa_smoke/gen_random_stream.sh` | 从固定种子生成运算指令序列及独立的 32 位宿主机预期结果 |
 | `sim/tb_soc.sv` | 复位后运行当前 ROM 镜像的定时 smoke test |
 
 ### 2026-09-10 审计结果
@@ -307,7 +336,7 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - 同步非法指令异常优先于异步 Timer 中断，并复用现有 `trap/kill/commit` 路径，保证故障指令和年轻指令不产生寄存器、CSR 或 Store 副作用。
 - `tb_interrupt` 验证一次 Trap、`mcause=2`、精确 `mepc` 和处理后继续执行；Docker/Icarus 完整回归为 `6 passed, 0 failed`，Vivado Simulator 2024.2 同项通过并结束于 2155 ns。
 - 完整回归同时暴露并修复了 `tb_pipeline` 的同步指令存储器初始化顺序：现在先填充存储器，再保持复位两个周期，避免把未知输出误当成真实取指。
-- 当前边界：CSR 地址/权限尚未参与非法检查；EBREAK 尚无 cause 3。地址未对齐异常已在下一小节完成。
+- 该次验证的边界：CSR 地址/权限尚未参与非法检查，EBREAK 尚无 cause 3；这些功能已在后续小节补齐。
 
 ### 2026-09-16 阶段 1：地址未对齐异常
 
@@ -315,7 +344,7 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - 对 JAL、实际采用的 Branch 和 JALR 检查真实目标地址；RV32I 不含压缩指令，因此目标必须 4 字节对齐。未采用的条件分支不检查其未使用目标。
 - 异常优先级现为同步地址异常/非法指令/ECALL 高于异步 Timer；cause 分别为指令地址 0、Load 4、Store 6。
 - `tb_interrupt` 验证未对齐 LW 保留寄存器哨兵值、未对齐 SW 无写使能、未对齐 JAL 精确返回。Docker/Icarus 完整回归为 `6 passed, 0 failed`，Vivado Simulator 2024.2 同项通过并结束于 3205 ns。
-- 当前边界：尚未实现 `mtval`，也未检查 MRET 的 `mepc` 或 Trap 的 `mtvec` 配置错误；后续还需扩充 LH/SH、JALR、taken/not-taken Branch 的交叉用例。
+- 该次验证的边界：当时尚未实现 `mtval`，也未检查 MRET 的 `mepc` 或 Trap 的 `mtvec` 配置错误；后续已补 JALR、taken/not-taken Branch 的交叉用例，LH/SH 与 `mtvec/mepc` 配置边界仍待验证。
 
 ### 2026-09-16 阶段 1：Timer 请求保持
 
@@ -324,6 +353,76 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 - 已使能且没有更高优先级异常时，原始 `timer_int` 仍可当拍被接收，不额外增加正常中断延迟。
 - `tb_interrupt` 覆盖 pending 的置位、跨 MIE/MTIE 屏蔽保持、接收后清除及 ECALL/Timer 冲突。Docker/Icarus 完整回归为 `6 passed, 0 failed`，Vivado Simulator 2024.2 同项通过并结束于 3735 ns。
 - 当前接口约定 `timer_int` 与 CPU `clk` 同步且表示事件脉冲。未来接入异步引脚或标准电平型 `mtime/mtimecmp` 时，必须增加 CDC 同步并重新确定中断源清除/确认协议。
+
+### 2026-09-16 阶段 1：CSR 地址和只读属性
+
+- 译码阶段只接受当前 CSR 文件真实实现的地址；未实现地址访问产生精确非法指令异常 cause 2，不再静默读 0。
+- `mip` 与 `mhartid` 只读；区分 CSRRW/CSRRWI 的写入意图，以及 CSRRS/CSRRC/立即数形式零源操作数的纯读取。非法写入不修改 CSR，也不向通用寄存器写回。
+- `tb_interrupt` 覆盖未实现地址、两个只读 CSR 的非法写入、合法纯读取和处理程序返回。Docker/Icarus 完整回归 `6 passed, 0 failed`；Vivado Simulator 2024.2 同项通过（4455 ns）。
+- 当前核心只有 M 模式；本项不代表已实现 U/S 特权级检查或所有 CSR 的字段级 WARL 规则。
+
+### 2026-09-16 阶段 1：性能计数器
+
+- `cycle`/`cycleh`（`0xC00/0xC80`）和 `instret`/`instreth`（`0xC02/0xC82`）提供 64 位计数的只读低/高半字；机器态 `mcycle`/`mcycleh`、`minstret`/`minstreth` 是同一计数的可写别名。尚未实现 `time`，因此不是完整 Zicntr。
+- 自定义只读 CSR `0xCC0/0xCC1` 提供 64 位 `stall_cycles`：仅当 `stall=1` 且 PC 未被 Trap/MRET/分支纠正重定向时计数。它是当前流水线的有效暂停周期，不等同于未来 Cache miss 计数。
+- `instret` 在 WB 有效指令退休时递增，包含 Store、Branch、`jal x0` 等不写通用寄存器的指令；被异常/中断取消的指令和 bubble 不计数。复位期间三个计数器均清零。
+- `tb_perf_counters` 覆盖 load-use 停顿、软件可读 CSR、机器态高低半字写入和 64 位进位；`tb_interrupt` 同时核对多次 Trap 及 Trap/stall 重合后的累计值。Docker/Icarus 完整回归 `7 passed, 0 failed`；Vivado Simulator 2024.2 两项定向测试通过（计数器 1 μs、中断 4455 ns）。
+- 这些计数可用于测量代码段的周期差、退休指令差和当前已实现的 load-use 暂停差；以后引入 Cache/握手后应新增事件分类，不能把总周期差全部归因于某一模块。尚未做 PDS 综合或板级性能测量。
+
+### 2026-09-16 阶段 1：EBREAK 与 mtval
+
+- 精确识别 `EBREAK`（`0x00100073`）并产生 breakpoint cause 3；故障指令被 kill，不会退休，Handler 可修改 `mepc` 后通过 MRET 继续执行。
+- 新增可读写 `mtval`（`0x343`）。发生 Trap 时硬件优先覆盖：非法指令存原始 32 位编码；未对齐指令目标存实际跳转目标；未对齐 Load/Store 存实际访存地址；EBREAK、ECALL、Timer 存 0。MRET 本身不改写 `mtval`。
+- `tb_interrupt` 验证各类故障值、软件写入与读回、EBREAK 的 cause/mepc/返回，以及 JAL/JALR/taken Branch 的未对齐目标；未采用的分支不误报。Docker/Icarus 完整回归 `7 passed, 0 failed`；Vivado Simulator 2024.2 的 `tb_interrupt`（5555 ns）和 `tb_perf_counters`（1 μs）均通过。
+- 该阶段尚未实现 `mtvec` Direct/Vectored 与 CSR 字段级 WARL 规则；后续小节已补 `mtvec`，其他 CSR 字段仍待完善。以上是行为仿真结果，不代表 PDS 综合或上板已验证。
+
+### 2026-09-16 阶段 1：`mtvec` Direct/Vectored
+
+- `mtvec` 拆为 BASE 和 MODE。Direct（MODE=0）所有 Trap 进入 BASE；Vectored（MODE=1）同步异常仍进入 BASE，异步中断进入 `BASE + 4 × mcause 编号`。例如 `mtvec=0x41` 时，ECALL 到 `0x40`，Timer cause 7 到 `0x5c`，不会把 `0x41` 当取指地址。
+- 本实现仅支持 MODE 0/1；软件写入保留编码 2/3 时按 WARL 读回 0，BASE 保持 4 字节对齐。当前只有 Timer 一种中断源；向量槽可放跳转到共用 Handler 的指令，不代表已实现多来源仲裁或软件中断处理框架。
+- `tb_mtvec` 验证 Direct ECALL、Vectored ECALL/Timer、向量槽执行与 MRET，以及保留 MODE 读回。Docker/Icarus 完整回归 `8 passed, 0 failed`；Vivado Simulator 2024.2 独立编译、展开并通过该定向用例（830 ns）。尚未做 PDS 综合与上板测试。
+
+### 2026-09-16 阶段 1：M-only CSR 字段与 MRET 返回
+
+- `mstatus` 只保留 MIE/MPIE，MPP 固定为唯一支持的 M 模式；`mie` 只保留 MTIE。软件写入其他位会读回 0，不会制造并不存在的特权级或中断使能。
+- 本核仅支持 32 位对齐取指（IALIGN=32），因此 `mepc[1:0]` 在软件写入或 Trap 保存时清零；MRET 使用此对齐地址。例如软件写 `mepc=0x83`，读回及返回目标是 `0x80`。这不表示已检测目标存储器是否存在。
+- `tb_csr_fields` 覆盖全 1 字段写入、读回、对齐返回、ECALL 时 MIE/MPIE 转换、Handler 修正 `mepc` 后再次 MRET；`tb_csr` 的旧预期值已按 MPP/IALIGN 修正。Docker/Icarus 完整回归 `9 passed, 0 failed`；Vivado Simulator 2024.2 的两项 CSR 测试均通过。仍未进行 PDS 综合或上板验证。
+
+### 2026-09-16 阶段 1：半字访存边界
+
+- 使用与 SoC 一致的一拍同步 RAM 验证 `LH/LHU/SH`：`LH` 对 bit 15 符号扩展，`LHU` 零扩展；地址偏移 0 和 2 分别选择一个字的低、高半字。`SH` 只使能对应两个字节，分别产生 `0011` 和 `1100` 写掩码；`LW` 再读回核对最终小端字节序。
+- 地址偏移 1/3 的 `LH/LHU/SH` 分别产生 Load/Store 未对齐 cause 4/6，`mtval` 保存有效地址；故障 Load 不覆盖目标寄存器，故障 Store 不拉高写使能。现有 RTL 通过了测试，本轮没有改动访存数据通路。
+- `tb_halfword` 在 Docker/Icarus 与 Vivado Simulator 2024.2 均通过；完整项目回归为 `10 passed, 0 failed`。测试范围仍是固定一拍 RAM，不证明未来 Cache miss、总线等待或 FPGA 上板行为。
+
+### 2026-09-16 阶段 1：上游 RV32UI 纯计算与控制流单测
+
+- 单独的 `make isa-smoke` 固定使用 [riscv-tests](https://github.com/riscv-software-src/riscv-tests) 提交 `2ebecad997fa58cd9e5724340ba75aa4b59bd1d0`，编译未经修改的 30 项 RV32UI 测试主体，覆盖整数算术/逻辑、比较、移位、分支、跳转和高位立即数；30/30 通过。`add/addi` 还覆盖边界值、零寄存器、源/目标重叠及多种前递距离。
+- 本仓库仅提供 M-only 启动/结束适配：程序从 ROM 地址 0 执行，结果用一次 Store 写到 RAM 最后一个字 `0x20000ffc`；`1` 表示通过，其他编码报告失败子项。故意失败的探针产生非零仿真退出并报告子项 7，验证测试桥接不会误报 PASS。
+- 该次 30 项结果与项目自写的 `10/10` 回归分别统计。当时的桥接尚未装载 RAM 数据段或允许普通 RAM 写入；访存测试已在下一小节补入。没有使用上游默认的 PMP/SATP/U 模式环境，也没有运行 ACT4 或板级验证，不能把 30/30 宣称为官方一致性认证。
+
+### 2026-09-16 阶段 1：上游 RV32UI 访存单测
+
+- 仿真适配现按 ELF 的 `.data` 内容初始化 `0x20000000` 起的 4 KiB 同步 RAM，普通 Store 可修改数据区；最后一个字 `0x20000ffc` 只作为结果出口，Load、越界访问和非整字结果写入会报错。链接阶段也检查数据/零初始化段不覆盖结果字。
+- 在原有 30 项之上加入 `lb/lbu/lh/lhu/lw/sb/sh/sw/ld_st/st_ld` 共 10 项。它们覆盖字节/半字/字、符号扩展、小端字节排列、普通 RAM 写入和写后读/前递距离；固定上游版本在 Docker/Icarus 下共 `40/40` 通过，故意失败的结果码探针继续正确失败。项目自写完整回归另为 `10/10`。
+- 未纳入上游 `fence_i`（当前核心未实现 FENCE.I）和 `ma_data`（它要求未对齐访存直接成功，而本核策略是产生 Trap）。目前仍是 M-only、固定一拍 ROM/RAM 的行为仿真；没有运行 ACT4、完整 CSR/随机测试、综合或板级验证。
+
+### 2026-09-16 阶段 1：固定种子长序列与独立参考值
+
+- 新增本地 `long_mem_stress.S`：从 `0x12345678` 开始执行 256 轮 xorshift32，在 16 个 RAM 字间轮转，每轮交错使用移位/XOR、分支、`SW/LW`、`SH/LH`、`SB/LB` 和紧邻的写后读。程序内检查即时结果及最终状态；宿主机另行计算 16 个最终 RAM 字作为独立参考值。
+- Docker/Icarus 下运行 12,403 仿真周期并通过；测试台还会故意提交错误参考值，确认它确实会报错。上游 40/40 与项目完整回归 10/10 保持通过。本轮未改 CPU RTL。
+- 数据按固定种子变化，但指令顺序是固定循环；这不是随机指令生成、ACT4、Cache miss/可等待总线验证，也不代表 FreeRTOS 或上板长时间稳定性。
+
+### 2026-09-16 阶段 1：可复现的随机指令混合与 ACT4 预检
+
+- 生成器用 4 个固定种子各生成 96 条不同顺序的 RV32I 运算指令，每组均包含 `ADDI/XORI/ANDI/ORI/SLLI/SRLI/SRAI/ADD/SUB/XOR`。每 8 条插入 Store→Load→Branch 检查，末尾的 RAM 字与生成器的 32 位宿主机模型比较；四组均通过，且错误参考值探针仍能被拒绝。
+- 这是真正变化的指令顺序，但仅覆盖选定的 10 类运算和固定一拍 RAM；未随机化异常、中断或 Cache 等待。种子写死以便复现失败，后续可以扩大种子集合。
+- 按 [ACT4 官方说明](https://github.com/riscv/riscv-arch-test/blob/act4/README.md)，完整适配还需 UDB 硬件配置、`rvmodel_macros.h`、链接脚本和 Sail 参考模型。当前 Docker 有 RISC-V GCC/Icarus，但没有 Python/uv、Ruby/Bundler 或 Sail；本轮只做只读预检，未安装依赖、未运行 ACT4。可考虑以后使用其[独立 Docker 环境](https://github.com/riscv/riscv-arch-test/blob/act4/Dockerfile)，避免改动现有轻量仿真环境。
+
+### 2026-09-16 阶段 1：交叉 Trap、FENCE 与行为基线验收
+
+- `tb_trap_mix` 运行真实 M-mode Handler：64 次主循环中交错 Store/Load 与 ECALL；处理 8 次 ECALL、18 次定时器中断，包含同周期 ECALL/Timer 冲突、Load EX 与 Timer 重合及 Store EX 与 Timer 重合。Handler 保存临时寄存器、修正 ECALL 的 `mepc` 后 MRET；最终 RAM 计数由测试台独立核对。4 个固定脉冲时序种子在 Docker/Icarus 和 Vivado Simulator 2024.2 均通过。
+- 新增 RV32I `FENCE` 译码：当前单核顺序执行、固定一拍存储且无未完成请求，FENCE/FENCE.TSO 可在无额外硬件等待下退休；保留的 `fm/rs1/rd` 也按普通 FENCE 处理。`tb_fence` 验证 Store→FENCE→Load、3 条 FENCE 正常退休且无多余写入；未实现的 FENCE.I 单独产生 cause 2、`mtval=0x0000100f`，Handler 跳过后能继续执行。Icarus 与 Vivado Simulator 2024.2 均通过。接入 Cache、突发总线或 AI DMA 前须重做排序契约，不能沿用“空操作”结论。
+- 最终串行入口 `make phase1-behavior` 依次运行项目完整回归、固定上游 RV32UI 40 项、本地 256 轮长序列、4 种子×96 条随机运算及 4 种子异常/中断交错；最终项目回归为 11/11。此结论限于已实现的 M-only 指令/CSR 子集和一拍同步 ROM/RAM 行为模型；并不覆盖 ACT4、可等待总线、综合时序或上板。
 
 ### 与后续 Cache 和分支预测器的控制关系
 
@@ -342,28 +441,22 @@ make -B -C sim TB_MOUDLE=tb_control.sv DUMP_WAVES=1
 
 ## 后续开发优先级
 
-### P0 建立可信基线
+### 已完成的行为基线
 
-1. 在 `soc` 明确连接 `timer_int`：未接定时器前固定为 0，接入后增加同步器和清晰的中断源接口。
-2. 把 `pipeline.sv` 的所有信号声明移到首次使用之前，并同时用 Icarus 与 Vivado 重新回归。
-3. 让每个 testbench 汇总错误数并在失败时调用 `$fatal`；修正失败后仍打印 `[PASS]` 的判定逻辑。
-4. 统一 ROM/RAM 深度、`sample.ld`、`.mem/.coe` 生成长度和仿真加载路径。
-5. 固化一条可重复的全量回归命令，并把日志中的 `[FAIL]`、`$error` 和 X 值视为失败。
+- 阶段 1 的 M-only、一拍同步存储行为验收已完成；每项结果及其限制见上文和 [升级计划](升级计划.md)。`timer_int` 在 SoC 中仍接 0，真实定时器、CDC、UART 自检、ACT4 和 FreeRTOS 端到端测试尚待完成。
+- `.mem` 镜像已按 4 KiB ROM 生成并检查越界；`sample.ld` 仍声明 128 KiB ROM/RAM，扩大实际存储器或运行更大软件前必须统一。
 
-### P1 完成可移植 CPU 行为
+### 下一步：阶段 2 存储接口与目标流水线
 
-1. 已完成 EX/MEM/WB 第一版有效位和提交点；后续接入 IF/ID 与存储接口握手时继续扩展。
-2. `mie.MTIE` 门控已接入；下一步实现正确的 `mtvec` Direct/Vectored 处理和必要的特权状态。
-3. opcode、`funct3/funct7` 严格检查以及 illegal/misaligned Trap 已完成；下一步补 CSR 地址/权限检查。
-4. 为指令和数据接口定义握手协议，或把“一拍同步返回、永不等待”写成稳定接口契约。
-5. 增加 UART 自检、随机/定向冒险测试和官方 RISC-V ISA 测试。
+1. 为取指、Load/Store 定义可等待、可报错的请求/响应协议；验证停顿中不重复 Store、重定向后不执行过期取指响应。
+2. 按赛题目标把合并的取指/译码前端拆为明确的 IF、ID 两级，将现有 `valid/kill/commit` 扩展到真实五级流水；保持阶段 1 的精确异常语义。
+3. 划定 ROM、普通 RAM、非缓存 MMIO 和后续 DMA 缓冲区；预留 DDR 突发与仲裁接口。每次改动后重跑 `make phase1-behavior`，并增加可变等待/错误返回测试。
 
-### P2 SoC 与软件平台
+### 并行的工程与软件验收
 
-1. 决定真实片上存储容量，并据此调整链接区、栈和 heap。
-2. 为 FreeRTOS 实现本 SoC 的 UART、mtime/mtimecmp、启动代码、Trap 入口和端到端 demo。
-3. 建立包含确切 FPGA part、top、XDC 和报告脚本的 Vivado 工程，完成综合、实现和板级验证。
-4. 把 legacy RTL 和 Draw.io 备份文件移出活跃源码区，按当前 RTL 重画存在端口名、位宽和 CSR 来源错误的架构图。
+- 为盘古100Pro+的 `PG2L100H-6FBG676` 建立目标 PDS 工程和约束，先测 CPU/DDR IP 的真实 LUT6、DRM、APM 占用与布线后时序；仓库中的 `rtl/phosphor_zynq.xdc` 是旧 Xilinx 约束，不可直接迁移。
+- 适配目标存储容量、链接脚本、启动与 UART/定时器软件后再跑 CoreMark 和 FreeRTOS；在此之前不能报告板级 CoreMark/MHz 或 CoreMark/LUT。
+- legacy RTL 与旧 Draw.io 架构资料继续标为参考文件；若重画架构图，应以当前端口、位宽和 CSR 路径为准，不混入活跃源码。
 
 ## 项目结构
 
@@ -376,7 +469,7 @@ risc-mini-NailongBranch2/
 │   ├── phosphor_zynq.xdc   # 50 MHz 与四个顶层引脚约束
 │   ├── core/               # 当前 pipeline 核心及 legacy CPU
 │   └── peripherals/        # 总线、ROM、RAM、UART、复位
-├── sim/                    # 六个 SystemVerilog testbench
+├── sim/                    # 自检 testbench 与 ISA/Trap 仿真脚本
 ├── src/
 │   ├── hello/              # 当前默认 Hello World 应用
 │   ├── mini_libc/          # 当前 SoC UART 的 picolibc 适配

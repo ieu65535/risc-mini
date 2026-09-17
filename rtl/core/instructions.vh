@@ -58,9 +58,19 @@
 
 // CSR reg addr
 `define CSR_CYCLE   12'hc00
+`define CSR_INSTRET 12'hc02
 `define CSR_CYCLEH  12'hc80
+`define CSR_INSTRETH 12'hc82
+`define CSR_MCYCLE  12'hb00
+`define CSR_MINSTRET 12'hb02
+`define CSR_MCYCLEH 12'hb80
+`define CSR_MINSTRETH 12'hb82
+// 自定义只读 CSR（0xCC0–0xCFF）：流水线实际保持的暂停周期。
+`define CSR_STALL_CYCLES  12'hcc0
+`define CSR_STALL_CYCLESH 12'hcc1
 `define CSR_MTVEC   12'h305
 `define CSR_MCAUSE  12'h342
+`define CSR_MTVAL   12'h343
 `define CSR_MEPC    12'h341
 `define CSR_MIE     12'h304
 `define CSR_MIP     12'h344

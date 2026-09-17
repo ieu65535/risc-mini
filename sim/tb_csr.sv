@@ -78,7 +78,7 @@ module tb_csr();
         // ---------------------------------------------------------
         inst_mem[8]  = 32'h34500593; // 20: addi x11, x0, 0x345
         inst_mem[9]  = 32'h34159073; // 24: csrw mepc, x11    (立刻写CSR，需触发前递)
-        inst_mem[10] = 32'h34102673; // 28: csrr x12, mepc    -> 预期 x12 = 0x345
+        inst_mem[10] = 32'h34102673; // 28: csrr x12, mepc    -> IALIGN=32，预期 0x344
 
         // ---------------------------------------------------------
         // [进阶测试2]: 立即数操作 (CSRRWI, CSRRSI, CSRRCI)
@@ -120,15 +120,15 @@ module tb_csr();
         if (dut.u_reg_file.regs[7] === 32'h123) $display("[PASS] 基础读写: x7 = 0x123");
         else begin $display("[FAIL] 基础读写: x7 = 0x%h, 期望 0x123", dut.u_reg_file.regs[7]); error_count = error_count + 1; end
 
-        if (dut.u_reg_file.regs[9] === 32'h8) $display("[PASS] CSRRS(置位): x9 = 0x8");
-        else begin $display("[FAIL] CSRRS(置位): x9 = 0x%h, 期望 0x8", dut.u_reg_file.regs[9]); error_count = error_count + 1; end
+        if (dut.u_reg_file.regs[9] === 32'h1808) $display("[PASS] CSRRS(置位): MPP=M、MIE=1");
+        else begin $display("[FAIL] CSRRS(置位): x9 = 0x%h, 期望 0x1808", dut.u_reg_file.regs[9]); error_count = error_count + 1; end
 
-        if (dut.u_reg_file.regs[10] === 32'h0) $display("[PASS] CSRRC(清零): x10 = 0x0");
-        else begin $display("[FAIL] CSRRC(清零): x10 = 0x%h, 期望 0x0", dut.u_reg_file.regs[10]); error_count = error_count + 1; end
+        if (dut.u_reg_file.regs[10] === 32'h1800) $display("[PASS] CSRRC(清零): MPP=M、MIE=0");
+        else begin $display("[FAIL] CSRRC(清零): x10 = 0x%h, 期望 0x1800", dut.u_reg_file.regs[10]); error_count = error_count + 1; end
 
         // --- 进阶测试1检查 ---
-        if (dut.u_reg_file.regs[12] === 32'h345) $display("[PASS] ALU->CSR前递: x12 = 0x345");
-        else begin $display("[FAIL] ALU->CSR前递: x12 = 0x%h, 期望 0x345", dut.u_reg_file.regs[12]); error_count = error_count + 1; end
+        if (dut.u_reg_file.regs[12] === 32'h344) $display("[PASS] ALU->CSR前递: mepc 对齐到 0x344");
+        else begin $display("[FAIL] ALU->CSR前递: x12 = 0x%h, 期望 0x344", dut.u_reg_file.regs[12]); error_count = error_count + 1; end
 
         // --- 进阶测试2检查 ---
         if (dut.u_reg_file.regs[13] === 32'h1F) $display("[PASS] CSRRWI(立即数写): x13 = 31");

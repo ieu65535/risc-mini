@@ -20,7 +20,7 @@ tests=(
 )
 
 if [[ "${1:-}" == "--all" ]]; then
-    tests+=(tb_interrupt.sv)
+    tests+=(tb_interrupt.sv tb_perf_counters.sv tb_mtvec.sv tb_csr_fields.sv tb_halfword.sv tb_fence.sv)
 fi
 
 failures=0

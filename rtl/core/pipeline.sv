@@ -21,6 +21,8 @@ logic [31:0] target_pc;
 logic        trap_valid;
 logic        mret_valid;
 logic [31:0] trap_cause;
+logic [31:0] trap_tval;
+logic [31:0] inst_ex;
 logic [ 1:0] pc_sel;
 wire  [ 4:0] rs1_addr = inst[19:15];
 wire  [ 4:0] rs2_addr = inst[24:20];
@@ -34,6 +36,7 @@ logic        csr_mip_mtip;
 logic        timer_irq_taken;
 logic        csr_we_ex;
 logic        is_ecall_ex;
+logic        is_ebreak_ex;
 logic        is_illegal_ex;
 logic        is_mret_ex;
 logic [ 4:0] rd_addr_ex;
@@ -59,6 +62,7 @@ logic        commit_wb;
 logic        inst_addr_misaligned_ex;
 logic        load_addr_misaligned_ex;
 logic        store_addr_misaligned_ex;
+logic [31:0] inst_misaligned_target_ex;
 
 // Timer/异常在 EX 阶段被接受时，当前 EX 指令必须取消；MRET 后从 mepc 重执行。
 assign kill_ex    = trap_valid;
@@ -76,11 +80,14 @@ ctrl u_ctrl(
     .alu_cond   (alu_cond   ),
     .alu_dout   (alu_dout   ),
     .pc_ex      (pc_ex      ),
+    .inst_ex    (inst_ex    ),
+    .inst_misaligned_target_ex(inst_misaligned_target_ex),
     .stall      (stall      ),
     .pc_mis     (pc_mis     ),
     .target_pc  (target_pc  ),
 
     .is_ecall_ex(is_ecall_ex),
+    .is_ebreak_ex(is_ebreak_ex),
     .is_illegal_ex(is_illegal_ex),
     .inst_addr_misaligned_ex(inst_addr_misaligned_ex),
     .load_addr_misaligned_ex(load_addr_misaligned_ex),
@@ -96,7 +103,8 @@ ctrl u_ctrl(
     .trap_valid (trap_valid ),
     .timer_irq_taken(timer_irq_taken),
     .mret_valid (mret_valid ),
-    .trap_cause (trap_cause )
+    .trap_cause (trap_cause ),
+    .trap_tval  (trap_tval  )
 );
 
 logic [31:0] pc;
@@ -124,6 +132,7 @@ logic       rd_en;
 logic [1:0] wb_sel;
 logic      csr_we;
 logic      is_ecall;
+logic      is_ebreak;
 logic      is_mret;
 
 decoder u_decoder(
@@ -141,6 +150,7 @@ decoder u_decoder(
 
     .csr_we     (csr_we     ),
     .is_ecall   (is_ecall   ),
+    .is_ebreak  (is_ebreak  ),
     .is_mret    (is_mret    )
 );
 
@@ -201,8 +211,11 @@ csr_file u_csr_file(
     .mret_valid      (mret_valid),
     .trap_pc         (pc_ex),      // 当前触发异常的指令 PC
     .trap_cause      (trap_cause),
+    .trap_tval       (trap_tval),
     .timer_int       (timer_int),
     .timer_irq_taken (timer_irq_taken),
+    .retire_valid    (valid_wb),
+    .stall_valid     (stall & ~pc_mis),
     
     // 直通输出
     .csr_mepc_out    (csr_mepc),
@@ -218,7 +231,6 @@ logic [ 3:0] mem_mask_ex;
 logic [ 2:0] alu_ctrl_ex;
 logic [ 1:0] op1_sel_ex;
 logic [ 1:0] op2_sel_ex;
-logic [31:0] inst_ex;
 logic [31:0] rs1_ex;
 logic [31:0] rs2_ex;
 always_ff @(posedge clk) begin
@@ -240,6 +252,7 @@ always_ff @(posedge clk) begin
 
         csr_we_ex   <= 1'b0;
         is_ecall_ex <= 1'b0;
+        is_ebreak_ex <= 1'b0;
         is_illegal_ex <= 1'b0;
         is_mret_ex  <= 1'b0;
     end else begin
@@ -261,6 +274,7 @@ always_ff @(posedge clk) begin
 
         csr_we_ex   <= inst_valid & csr_we;
         is_ecall_ex <= inst_valid & is_ecall;
+        is_ebreak_ex <= inst_valid & is_ebreak;
         is_illegal_ex <= ~inst_valid;
         is_mret_ex  <= inst_valid & is_mret;
     end
@@ -293,6 +307,10 @@ wire [31:0] imm_b_ex = {{19{inst_ex[31]}}, inst_ex[31], inst_ex[7],
 wire [31:0] jal_target_ex    = pc_ex + imm_j_ex;
 wire [31:0] branch_target_ex = pc_ex + imm_b_ex;
 wire [31:0] jalr_target_ex   = {alu_dout[31:1], 1'b0};
+
+assign inst_misaligned_target_ex =
+       (pc_sel_ex == `PC_J)  ? jal_target_ex :
+       (pc_sel_ex == `PC_B)  ? branch_target_ex : jalr_target_ex;
 
 assign inst_addr_misaligned_ex = valid_ex &&
        (((pc_sel_ex == `PC_J)  && (|jal_target_ex[1:0])) ||
