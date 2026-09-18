@@ -1,0 +1,27 @@
+# Pango Design Suite generated output and logs
+/design_workspace/
+/prj_tasks/
+/log/
+/logbackup/
+*.log
+/sources_info.log
+
+# IP-generator state markers
+.last_generated
+.settings
+
+# Simulation output
+*.vvp
+*.vcd
+*.fst
+
+# FPGA implementation reports and temporary databases
+*.jou
+*.str
+*.tmp
+*.bak
+
+# Operating-system and editor metadata
+.DS_Store
+Thumbs.db
+*~
