@@ -50,6 +50,7 @@ logic        is_mret_ex;
 logic [ 4:0] rd_addr_ex;
 logic [ 1:0] wb_sel_ex;
 logic [31:0] pc_ex;
+logic [31:0] inst_ex;
 logic [ 1:0] pc_sel_ex;
 logic [31:0] alu_dout;
 logic        alu_cond;
@@ -238,7 +239,6 @@ logic [ 3:0] mem_mask_ex;
 logic [ 2:0] alu_ctrl_ex;
 logic [ 1:0] op1_sel_ex;
 logic [ 1:0] op2_sel_ex;
-logic [31:0] inst_ex;
 logic [31:0] rs1_ex;
 logic [31:0] rs2_ex;
 

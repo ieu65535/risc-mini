@@ -248,11 +248,11 @@ end
 
 
 
-initial 
-begin
- $fsdbDumpfile("ddr3_test_top_tb.fsdb");
- $fsdbDumpvars(0,"ddr3_test_top_tb");
-end
+// initial 
+// begin
+//  $fsdbDumpfile("ddr3_test_top_tb.fsdb");
+//  $fsdbDumpvars(0,"ddr3_test_top_tb");
+// end
 
 wire error_state ; 
 assign error_state = | u_ddr.I_ips_ddr_top.u_ddrphy_top.ddrphy_calib_top.ddrphy_main_ctrl.error_status ;

@@ -2,6 +2,7 @@
 /design_workspace/
 /prj_tasks/
 /log/
+/pango_sim_libraries/
 /logbackup/
 *.log
 /sources_info.log

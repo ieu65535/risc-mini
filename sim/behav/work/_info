@@ -1,0 +1,561 @@
+m255
+K4
+z2
+!s11f vlog 2020.1 2020.02, Feb 28 2020
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+Z0 dD:/workspace/FPGA/RVCPU/sim/behav
+valu
+Z1 DXx6 sv_std 3 std 0 22 VYECXdT12H8WgbUP_5Y6:3
+Z2 !s110 1789736239
+!i10b 1
+!s100 9KDI>aLH39>6UCz8OWR@Y3
+Z3 !s11b Dg1SIo80bB@j0V0VzS_@n1
+I<bzi@GY;ezK6kcXAL[j?N3
+Z4 VDg1SIo80bB@j0V0VzS_@n1
+S1
+R0
+Z5 w1789624088
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/alu.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/alu.sv
+!i122 0
+L0 4 57
+Z6 OV;L;2020.1;71
+r1
+!s85 0
+31
+Z7 !s108 1789736239.000000
+!s107 D:\workspace\FPGA\RVCPU\risc-mini\rtl\peripherals\..\config.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\core\..\config.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\core\micro.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\core\instructions.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\config.vh|D:/workspace/FPGA/RVCPU/risc-mini/sim/tb_soc.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_tx.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_rx.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/reset_sync.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ram.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/io.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/flash.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ddr_interface.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/bus.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/wb.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/reg_file.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pipeline.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pc_reg.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/lmb.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/forward.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/fetch.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ex.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/decoder.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ctrl.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/csr_file.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/alu.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/soc.sv|
+Z8 !s90 -reportprogress|300|-work|work|D:/workspace/FPGA/RVCPU/risc-mini/rtl/soc.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/alu.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/csr_file.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ctrl.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/decoder.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ex.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/fetch.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/forward.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/lmb.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pc_reg.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pipeline.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/reg_file.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/wb.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/bus.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ddr_interface.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/flash.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/io.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ram.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/reset_sync.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_rx.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_tx.sv|D:/workspace/FPGA/RVCPU/risc-mini/sim/tb_soc.sv|
+!i113 1
+Z9 o-work work
+Z10 tCvgOpt 0
+vbus
+R1
+R2
+!i10b 1
+!s100 l<;lMCJ;OIZ8kSIMZTY<90
+R3
+Il0>ED3EhA7ObAAQ<h?I0S2
+R4
+S1
+R0
+w1789715270
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/bus.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/bus.sv
+!i122 0
+L0 1 199
+R6
+r1
+!s85 0
+31
+R7
+Z11 !s107 D:\workspace\FPGA\RVCPU\risc-mini\rtl\peripherals\..\config.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\core\..\config.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\core\micro.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\core\instructions.vh|D:\workspace\FPGA\RVCPU\risc-mini\rtl\config.vh|D:/workspace/FPGA/RVCPU/risc-mini/sim/tb_soc.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_tx.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_rx.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/reset_sync.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ram.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/io.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/flash.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ddr_interface.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/bus.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/wb.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/reg_file.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pipeline.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pc_reg.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/lmb.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/forward.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/fetch.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ex.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/decoder.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ctrl.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/csr_file.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/alu.sv|D:/workspace/FPGA/RVCPU/risc-mini/rtl/soc.sv|
+R8
+!i113 1
+R9
+R10
+vcsr_file
+R1
+R2
+!i10b 1
+!s100 SgbKWFXSgkB]N4jlT[39Y0
+R3
+IIHJ`IAmY6G2NOP_Fj^F_Y0
+R4
+S1
+R0
+w1789720415
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/csr_file.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/csr_file.sv
+!i122 0
+L0 4 138
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vctrl
+R1
+R2
+!i10b 1
+!s100 KzCPO12JUS3km91S]NCGW0
+R3
+I3A_e4@jKn`4Tk`254EK7a0
+R4
+S1
+R0
+w1789720736
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ctrl.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ctrl.sv
+!i122 0
+L0 3 111
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vddr_interface
+R1
+R2
+!i10b 1
+!s100 U?=z9z?c>=]OH[f9oLm?Q0
+R3
+Io?U8BHo:I;cINA0CdU@=c2
+R4
+S1
+R0
+w1789715245
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ddr_interface.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ddr_interface.sv
+!i122 0
+L0 1 248
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vdecoder
+R1
+R2
+!i10b 1
+!s100 6KTgU4eIzb<z^4S@;glS:1
+R3
+I=DOH^J8bA^hI:A1<nI3]G1
+R4
+S1
+R0
+w1789720650
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/decoder.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/decoder.sv
+!i122 0
+L0 4 177
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vex
+R1
+R2
+!i10b 1
+!s100 JQG]cfnlSoMOlHJ>h9NKS1
+R3
+IB=>4L9LGUM6^1A@VmC]282
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ex.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/ex.sv
+!i122 0
+L0 5 69
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vfetch
+R1
+R2
+!i10b 1
+!s100 kl@Yi@<9RAdAz:Q6m4=WO1
+R3
+I[]APRH9KWFkRU6eXi<7N52
+R4
+S1
+R0
+w1789712526
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/fetch.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/fetch.sv
+!i122 0
+L0 3 68
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vflash
+R1
+R2
+!i10b 1
+!s100 g:ceE@7N7o9]kSkJX5OIz3
+R3
+I[I4zdM1<hWE4j7?PDaiKS3
+R4
+S1
+R0
+w1789623995
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/flash.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/flash.sv
+!i122 0
+L0 2 29
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vforward
+R1
+R2
+!i10b 1
+!s100 OehDokW6CJ6N9b_ih4Q]V0
+R3
+INQ99Fh9BdK_lT]0GnYA`l0
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/forward.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/forward.sv
+!i122 0
+L0 3 95
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vio
+R1
+R2
+!i10b 1
+!s100 VenE=j;nZHL@<<MbSS6KK2
+R3
+IF9bGcN?`N:_QBHQ<=DmNB3
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/io.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/io.sv
+!i122 0
+L0 1 109
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vlmb
+R1
+R2
+!i10b 1
+!s100 gejm>Ril[XBnS93OMVo`92
+R3
+IcLk5OmNc@7>XN7Q^Z5mEQ2
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/lmb.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/lmb.sv
+!i122 0
+L0 2 33
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vpc_reg
+R1
+R2
+!i10b 1
+!s100 QzjIh:EH68h]Kfc[CXMJW1
+R3
+Ibzkef8a=jNIj`C1GNSeA]1
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pc_reg.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pc_reg.sv
+!i122 0
+L0 2 53
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vpipeline
+R1
+R2
+!i10b 1
+!s100 kBEDPJeU`<l>kW=6kRB0Y2
+R3
+IzciePg@e5c4DAiZNCg??T0
+R4
+S1
+R0
+w1789733351
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pipeline.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/pipeline.sv
+!i122 0
+L0 3 470
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vram
+R1
+R2
+!i10b 1
+!s100 [^HbSZ>KHZAeY`=_c=?8S1
+R3
+I>:9;=b0`TCLG=85S0iTn40
+R4
+S1
+R0
+Z12 w1774705696
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ram.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/ram.sv
+!i122 0
+L0 1 23
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vreg_file
+R1
+R2
+!i10b 1
+!s100 3^V6=MLzVS9IQbWBUO`IG3
+R3
+IWE;i8TY]oi`nGIh9=4]o73
+R4
+S1
+R0
+w1789715178
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/reg_file.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/reg_file.sv
+!i122 0
+L0 1 24
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vreset_sync
+R1
+R2
+!i10b 1
+!s100 cQCWeN]U4S0cMn0g7V@mE0
+R3
+IV>;K=Q`CXbKZSJcP`c@KA2
+R4
+S1
+R0
+R12
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/reset_sync.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/reset_sync.sv
+!i122 0
+L0 1 20
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vsoc
+R1
+R2
+!i10b 1
+!s100 ^CAIEG_LnYncnL3D4UVR]1
+R3
+IYGPLMH?@olcYCdKeQn3E<3
+R4
+S1
+R0
+w1789715280
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/soc.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/soc.sv
+!i122 0
+L0 3 234
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vtb_soc
+R1
+R2
+!i10b 1
+!s100 @a?68=eV?YeDRScf8WmWS2
+R3
+IV<`>n2ekU@=YPXJ<0THZH1
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/sim/tb_soc.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/sim/tb_soc.sv
+!i122 0
+L0 3 38
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vuart_rx
+R1
+R2
+!i10b 1
+!s100 WZ;?2ZK]<`]9fzj[YKaK@3
+R3
+I3AA;H5@jD6PPD?>8XfP0_0
+R4
+S1
+R0
+R12
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_rx.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_rx.sv
+!i122 0
+L0 1 96
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vuart_tx
+R1
+R2
+!i10b 1
+!s100 8h1IRW7<DWRn;dCKa]5jA3
+R3
+IUBGbeZc6dbQj95Ld:R6?K0
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_tx.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/peripherals/uart_tx.sv
+!i122 0
+L0 3 94
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10
+vwb
+R1
+R2
+!i10b 1
+!s100 bz1WXYM4lXV9zjQ=WKPK]1
+R3
+IoDmBTYI@5V[iX>E1Zn2g42
+R4
+S1
+R0
+R5
+8D:/workspace/FPGA/RVCPU/risc-mini/rtl/core/wb.sv
+FD:/workspace/FPGA/RVCPU/risc-mini/rtl/core/wb.sv
+!i122 0
+L0 3 20
+R6
+r1
+!s85 0
+31
+R7
+R11
+R8
+!i113 1
+R9
+R10

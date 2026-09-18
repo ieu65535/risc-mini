@@ -2,3 +2,7 @@
 *.vcd
 regression.log
 regression-all.log
+work/
+modelsim.ini
+transcript
+vsim.wlf
