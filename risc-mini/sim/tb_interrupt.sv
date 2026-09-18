@@ -69,7 +69,7 @@ module tb_interrupt();
 
         for(int i=0; i<256; i++) inst_mem[i] = 32'h00000013; // 默认 NOP
         
-        // --- 主程序区 (0x00 ~ 0x18) ---
+        // --- 主程序区 (0x00 ~ 0x20) ---
         // 初始化中断环境
         inst_mem[0] = 32'h04000093; // 00: addi x1, x0, 0x40 (中断入口地址设为 0x40)
         inst_mem[1] = 32'h30509073; // 04: csrw mtvec, x1    (写入 mtvec)
@@ -82,8 +82,10 @@ module tb_interrupt();
         // 如果 Flush 失败，这条会被误执行；如果成功，只会从中断返回后才执行
         inst_mem[5] = 32'h06300193; // 14: addi x3, x0, 99   (目标验证点：x3 是否等于 99)
         
-        // 模拟操作系统 Idle 任务 (死循环)
-        inst_mem[6] = 32'h0000006f; // 18: jal x0, 0         <-- 死循环等待外部 timer_int
+        // 分别开启 mie.MTIE 和全局 mstatus.MIE 后进入 Idle。
+        inst_mem[6] = 32'h08000393; // 18: addi x7, x0, 0x80 (mie.MTIE)
+        inst_mem[7] = 32'h3043a073; // 1C: csrs mie, x7
+        inst_mem[8] = 32'h0000006f; // 20: jal x0, 0         <-- 死循环等待外部 timer_int
 
         // --- 中断服务函数 Trap Handler (基址 0x40，即 inst_mem[16]) ---
         inst_mem[16] = 32'h34202273; // 40: csrr x4, mcause  (读取异常原因)
@@ -112,7 +114,7 @@ module tb_interrupt();
         // 【阶段 1】：让 CPU 跑 50 个周期，足够它执行完 ECALL 并 MRET 返回
         repeat(50) @(posedge clk);
 
-        // 此时 CPU 应该在 0x18 的死循环里。我们来检查 ECALL 是否处理正确。
+        // 此时 CPU 应该在 0x20 的死循环里。我们来检查 ECALL 是否处理正确。
         $display("\n========================================");
         $display("       异常与中断机制自动化验证报告       ");
         $display("========================================");
@@ -132,7 +134,7 @@ module tb_interrupt();
         end
 
         // 【阶段 2】：模拟外部定时器中断 (拉高 timer_int)
-        // 此时 CPU 在 0x18 死循环，拉高信号会将其强制拖入中断
+        // 此时 CPU 在 0x20 死循环，拉高信号会将其强制拖入中断
         $display("[TB PHASE] Timer interrupt test started");
         @(posedge clk);
         timer_int = 1; 
@@ -152,9 +154,9 @@ module tb_interrupt();
             error_count = error_count + 1;
         end
 
-        // 检查 Timer 中断保存的 mepc 是否是死循环的地址 (0x18)
-        if (dut.u_reg_file.regs[5] === 32'h00000018)
-            $display("[PASS] mepc 正确保存被打断的 PC (0x18)");
+        // 检查 Timer 中断保存的 mepc 是否是死循环的地址 (0x20)
+        if (dut.u_reg_file.regs[5] === 32'h00000020)
+            $display("[PASS] mepc 正确保存被打断的 PC (0x20)");
         else begin
             $display("[FAIL] mepc 现场保存错误, x5=%h", dut.u_reg_file.regs[5]);
             error_count = error_count + 1;
