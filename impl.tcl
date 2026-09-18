@@ -347,3 +347,10 @@ launch_tasks [get_tasks {syn_1}] -to_action compile
 wait_on_tasks [get_tasks {syn_1}] -to_action compile
 launch_tasks [get_tasks {syn_1}] -to_action synthesize
 wait_on_tasks [get_tasks {syn_1}] -to_action synthesize
+set_option max_threads 0
+set_arch -family Logos2 -device PG2L100H -speedgrade -6 -package FBG676
+set_option -options { top_module {soc}} [get_filesets design_1]
+launch_tasks [get_tasks {syn_1}] -to_action compile
+wait_on_tasks [get_tasks {syn_1}] -to_action compile
+launch_tasks [get_tasks {syn_1}] -to_action synthesize
+wait_on_tasks [get_tasks {syn_1}] -to_action synthesize
