@@ -9,7 +9,9 @@ module bus(
     input [31:0] mem_addr,//内存地址输入
     input [31:0] mem_din,   //数据输入
     input [ 3:0] mem_we,//数据写入使能
+    input        mem_en,
     output reg [31:0] mem_dout,//数据输出
+    output reg        mem_ready,
 
     input rxd,
     output txd,
@@ -42,6 +44,7 @@ localparam WIDTH = 10;//地址索引位数
 // DDR replaces the old on-chip flash interface.  Keep the flash source file in
 // the project so it can still be used for simulation or bring-up if required.
 wire [31:0] flash_dout;
+wire        ddr_data_ready;
 
 // flash u_flash(
 //     .clk        (clk        ),
@@ -61,8 +64,9 @@ ddr_interface u_ddr_interface (
     .data_addr       (mem_addr        ),
     .data_din        (mem_din         ),
     .data_we         (mem_we          ),
-    .data_en         (mem_addr[31:28] == 4'h0),
+    .data_en         (mem_en && (mem_addr[31:28] == 4'h0)),
     .data_dout       (flash_dout      ),
+    .data_ready      (ddr_data_ready  ),
     .busy            (ddr_busy        ),
     .axi_awaddr      (axi_awaddr      ),
     .axi_awuser_ap   (axi_awuser_ap   ),
@@ -124,8 +128,38 @@ io u_io(
 
 // multiplexer
 reg [ 3:0] select;
+reg        local_pending;
+
+wire local_request = mem_en &&
+                     ((mem_addr[31:28] == 4'h2) ||
+                      (mem_addr[31:28] == 4'h4));
+wire local_accept = local_request && !local_pending;
 
 always @(posedge clk) select <= mem_addr[31:28];
+
+// The on-chip RAM and I/O slaves return data one clock after acceptance.
+// Keep ready high for one cycle so the CPU can release its global stall.
+always @(posedge clk) begin
+    if (rst)
+        local_pending <= 1'b0;
+    else if (local_pending)
+        local_pending <= 1'b0;
+    else if (local_request)
+        local_pending <= 1'b1;
+end
+
+always @(*) begin
+    if (!mem_en)
+        mem_ready = 1'b1;
+    else begin
+        case (mem_addr[31:28])
+            4'h0: mem_ready = ddr_data_ready;
+            4'h2: mem_ready = local_pending;
+            4'h4: mem_ready = local_pending;
+            default: mem_ready = 1'b1;
+        endcase
+    end
+end
 
 // read data
 always @(*) begin
@@ -148,9 +182,9 @@ always @(*) begin
         // flash
         4'h0: ;
         // ram
-        4'h2: ram_we = mem_we;
+        4'h2: ram_we = local_accept ? mem_we : 4'b0;
         // peripherals
-        4'h4: wr = mem_we[0];
+        4'h4: wr = local_accept && mem_we[0];
     endcase
 end
 

@@ -26,6 +26,8 @@ module tb_interrupt();
         .inst       (inst),
         .inst_ready (1'b1),
         .mem_dout   (32'b0), // 不涉及内存读写，直接给默认值
+        .mem_ready  (1'b1),
+        .mem_en     (),
         .inst_addr  (inst_addr),
         .mem_din    (),
         .mem_addr   (),

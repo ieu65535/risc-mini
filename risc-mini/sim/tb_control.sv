@@ -15,6 +15,7 @@ module tb_control();
     logic [31:0] mem_din;
     logic [31:0] mem_addr;
     logic [ 3:0] mem_we;
+    logic        mem_en;
     integer      error_count = 0;
 
     // -----------------------------------------------------------
@@ -24,10 +25,9 @@ module tb_control();
     logic [31:0] data_mem [0:255]; 
 
     always_comb inst = inst_mem[inst_addr[9:2]];
+    always_comb mem_dout = data_mem[mem_addr[9:2]];
 
     always_ff @(posedge clk) begin
-        mem_dout <= data_mem[mem_addr[9:2]];
-
         if (mem_we[0]) data_mem[mem_addr[9:2]][ 7: 0] <= mem_din[ 7: 0];
         if (mem_we[1]) data_mem[mem_addr[9:2]][15: 8] <= mem_din[15: 8];
         if (mem_we[2]) data_mem[mem_addr[9:2]][23:16] <= mem_din[23:16];
@@ -44,6 +44,8 @@ module tb_control();
         .inst_ready (1'b1),
         .inst_addr  (inst_addr),
         .mem_dout   (mem_dout),
+        .mem_ready  (1'b1),
+        .mem_en     (mem_en),
         .mem_din    (mem_din),
         .mem_addr   (mem_addr),
         .mem_we     (mem_we),

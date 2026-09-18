@@ -31,6 +31,8 @@ module tb_csr();
         .inst_ready (1'b1),
         .inst_addr  (inst_addr),
         .mem_dout   (mem_dout),
+        .mem_ready  (1'b1),
+        .mem_en     (),
         .mem_din    (mem_din),
         .mem_addr   (mem_addr),
         .mem_we     (mem_we),

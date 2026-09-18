@@ -51,6 +51,8 @@ wire [31:0] mem_addr;
 wire [31:0] mem_din;
 wire [31:0] mem_dout;
 wire [ 3:0] mem_we;
+wire        mem_en;
+wire        mem_ready;
 
 wire [27:0]  axi_awaddr;
 wire         axi_awuser_ap;
@@ -85,7 +87,9 @@ bus u_bus(
     .mem_addr  (mem_addr  ),
     .mem_din   (mem_din   ),
     .mem_we    (mem_we    ),
+    .mem_en    (mem_en    ),
     .mem_dout  (mem_dout  ),
+    .mem_ready (mem_ready ),
     .txd       (txd       ),
     .rxd       (rxd       ),
     .axi_awaddr      (axi_awaddr      ),
@@ -121,6 +125,8 @@ pipeline u_cpu(
     .mem_addr  (mem_addr  ),
     .mem_din   (mem_din   ),
     .mem_dout  (mem_dout  ),
+    .mem_ready (mem_ready ),
+    .mem_en    (mem_en    ),
     .mem_we    (mem_we    ),
     .timer_int (1'b0      )
 );

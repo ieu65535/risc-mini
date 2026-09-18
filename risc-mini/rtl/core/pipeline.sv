@@ -8,6 +8,8 @@ module pipeline(
     output logic [31:0] inst_addr,
 
     input  logic [31:0] mem_dout,
+    input  logic        mem_ready,
+    output logic        mem_en,
     output logic [31:0] mem_din,
     output logic [31:0] mem_addr,
     output logic [ 3:0] mem_we,
@@ -16,6 +18,9 @@ module pipeline(
 );
 
 logic        stall;
+logic        mem_wait;
+logic        global_stall;
+logic        commit_redirect;
 logic        pc_mis;
 logic [31:0] target_pc;
 logic        trap_valid;
@@ -48,6 +53,7 @@ logic [ 4:0] rd_addr_mem;
 logic [31:0] csr_rdata_mem;
 logic [31:0] mem_data;
 logic [ 4:0] rd_addr_wb;
+logic        valid_wb;
 
 ctrl u_ctrl(
     .rs1_addr   (rs1_addr   ),
@@ -79,8 +85,8 @@ logic [31:0] pc;
 fetch u_fetch (
     .clk            (clk        ),
     .rst            (rst        ),
-    .stall          (stall      ),
-    .redirect_valid (pc_mis     ),
+    .stall          (global_stall),
+    .redirect_valid (commit_redirect),
     .redirect_addr  (target_pc  ),
     .inst_addr      (inst_addr  ),
     .inst_rdata     (inst       ),
@@ -128,6 +134,7 @@ logic [31:0] rd_data;
 
 reg_file u_reg_file(
     .clk      (clk         ),
+    .rd_we    (valid_wb    ),
     .rd_addr  (rd_addr_wb  ),
     .rd_data  (rd_data     ),
     .rs1_addr (rs1_addr    ),
@@ -167,15 +174,15 @@ csr_file u_csr_file(
     .rst             (rst),  
     
     // EX 阶段进行 CSR 读写
-    .csr_we          (csr_we_ex),
+    .csr_we          (csr_we_ex && !mem_wait),
     .csr_waddr       (inst_ex[31:20]),
     .csr_wdata       (csr_wdata_ex),
     .csr_raddr       (inst_ex[31:20]),
     .csr_rdata       (csr_rdata_ex),
     
     // 异常/中断相关 (目前先接 0，第二阶段再处理)
-    .trap_valid      (trap_valid), 
-    .mret_valid      (mret_valid),
+    .trap_valid      (trap_valid && !mem_wait),
+    .mret_valid      (mret_valid && !mem_wait),
     .trap_pc         (pc_ex),      // 当前触发异常的指令 PC
     .trap_cause      (trap_cause),
     
@@ -194,8 +201,15 @@ logic [ 1:0] op2_sel_ex;
 logic [31:0] inst_ex;
 logic [31:0] rs1_ex;
 logic [31:0] rs2_ex;
+logic        valid_ex;
+
+assign mem_en          = valid_ex && ((wb_sel_ex == `WB_MEM) || (|mem_mask_ex));
+assign mem_wait        = mem_en && !mem_ready;
+assign global_stall    = stall || mem_wait;
+assign commit_redirect = pc_mis && !mem_wait;
+
 always_ff @(posedge clk) begin
-    if(rst | stall | pc_mis | !fetch_valid) begin
+    if (rst | commit_redirect) begin
         is_sra_ex   <= 1'b0;
         is_sub_ex   <= 1'b0;
         mem_mask_ex <= 4'b0;
@@ -213,6 +227,28 @@ always_ff @(posedge clk) begin
         csr_we_ex   <= 1'b0;
         is_ecall_ex <= 1'b0;
         is_mret_ex  <= 1'b0;
+        valid_ex    <= 1'b0;
+    end else if (mem_wait) begin
+        // A data request is outstanding.  Keep the complete EX request stable
+        // until the selected slave asserts mem_ready.
+    end else if (stall | !fetch_valid) begin
+        is_sra_ex   <= 1'b0;
+        is_sub_ex   <= 1'b0;
+        mem_mask_ex <= 4'b0;
+        alu_ctrl_ex <= 3'b0;
+        op1_sel_ex  <= 2'b0;
+        op2_sel_ex  <= 2'b0;
+        inst_ex     <= 32'h0;
+        rs1_ex      <= 32'h0;
+        rs2_ex      <= 32'h0;
+        rd_addr_ex  <= 5'b0;
+        wb_sel_ex   <= `WB_ALU;
+        pc_ex       <= 32'h0;
+        pc_sel_ex   <= `PC_N;
+        csr_we_ex   <= 1'b0;
+        is_ecall_ex <= 1'b0;
+        is_mret_ex  <= 1'b0;
+        valid_ex    <= 1'b0;
     end else begin
         is_sra_ex   <= is_sra;
         is_sub_ex   <= is_sub;
@@ -231,6 +267,7 @@ always_ff @(posedge clk) begin
         csr_we_ex   <= csr_we;
         is_ecall_ex <= is_ecall;
         is_mret_ex  <= is_mret;
+        valid_ex    <= 1'b1;
     end
 end
 
@@ -253,6 +290,8 @@ ex u_ex(
 );
 
 logic [ 2:0] funct3_mem;
+logic [31:0] mem_dout_mem;
+logic        valid_mem;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -262,6 +301,19 @@ always_ff @(posedge clk) begin
         pc_mem <= 32'h0;
         rd_addr_mem <= 5'b0;
         csr_rdata_mem <= 32'h0;
+        mem_dout_mem <= 32'h0;
+        valid_mem <= 1'b0;
+    end else if (mem_wait) begin
+        // The older MEM instruction may retire, but the waiting EX request
+        // must not enter MEM until its response is valid.
+        alu_dout_mem <= 32'h0;
+        funct3_mem <= 3'b0;
+        wb_sel_mem <= `WB_ALU;
+        pc_mem <= 32'h0;
+        rd_addr_mem <= 5'b0;
+        csr_rdata_mem <= 32'h0;
+        mem_dout_mem <= 32'h0;
+        valid_mem <= 1'b0;
     end else begin
         alu_dout_mem <= alu_dout;
         funct3_mem   <= inst_ex[14:12]; 
@@ -269,6 +321,8 @@ always_ff @(posedge clk) begin
         pc_mem       <= pc_ex;
         rd_addr_mem  <= rd_addr_ex;
         csr_rdata_mem <= csr_rdata_ex;
+        mem_dout_mem <= mem_dout;
+        valid_mem <= valid_ex;
     end
 end
 
@@ -278,7 +332,7 @@ lmb u_lmb(
     .rs2          (rs2_ex       ),
     .mem_mask     (mem_mask_ex  ),
     .funct3       (funct3_mem   ),
-    .mem_dout     (mem_dout     ),
+    .mem_dout     (mem_dout_mem ),
     .mem_din      (mem_din      ),
     .mem_addr     (mem_addr     ),
     .mem_we       (mem_we       ),
@@ -290,8 +344,6 @@ logic [ 1:0] wb_sel_wb;
 logic [31:0] pc_wb;
 logic [31:0] mem_data_wb;
 logic [31:0] csr_rdata_wb;
-
-
 always_ff @(posedge clk) begin
     if (rst) begin
         alu_dout_wb <= 32'h0;
@@ -300,6 +352,7 @@ always_ff @(posedge clk) begin
         pc_wb <= 32'h0;
         mem_data_wb <= 32'h0;
         csr_rdata_wb <= 32'h0;
+        valid_wb <= 1'b0;
     end else begin
         alu_dout_wb <= alu_dout_mem;
         wb_sel_wb <= wb_sel_mem;
@@ -307,6 +360,7 @@ always_ff @(posedge clk) begin
         pc_wb <= pc_mem;
         mem_data_wb <= mem_data;
         csr_rdata_wb <= csr_rdata_mem;
+        valid_wb <= valid_mem;
     end
 end
 

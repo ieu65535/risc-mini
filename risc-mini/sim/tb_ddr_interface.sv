@@ -14,6 +14,7 @@ logic [31:0] data_din = 32'b0;
 logic [ 3:0] data_we = 4'b0;
 logic        data_en = 1'b0;
 logic [31:0] data_dout;
+logic        data_ready;
 logic        busy;
 
 logic [27:0]  axi_awaddr;
@@ -55,6 +56,7 @@ ddr_interface dut (
     .data_we         (data_we),
     .data_en         (data_en),
     .data_dout       (data_dout),
+    .data_ready      (data_ready),
     .busy            (busy),
     .axi_awaddr      (axi_awaddr),
     .axi_awuser_ap   (axi_awuser_ap),

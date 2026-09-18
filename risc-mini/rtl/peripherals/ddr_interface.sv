@@ -12,6 +12,7 @@ module ddr_interface (
     input  logic [ 3:0]  data_we,
     input  logic         data_en,
     output logic [31:0]  data_dout,
+    output logic         data_ready,
     output logic         busy,
 
     output logic [27:0]  axi_awaddr,
@@ -63,6 +64,7 @@ logic [255:0] inst_line_data;
 logic         data_line_valid;
 logic [26:0]  data_line_tag;
 logic [255:0] data_line_data;
+logic         write_done;
 
 wire inst_hit = inst_line_valid && (inst_line_tag == inst_addr[31:5]);
 wire data_hit = data_line_valid && (data_line_tag == data_addr[31:5]);
@@ -127,6 +129,8 @@ always @(*) begin
     inst_dout = inst_hit ? select_word(inst_line_data, inst_addr[4:2]) : 32'h0000_0013;
     inst_ready = ddr_init_done && inst_hit;
     data_dout = data_hit ? select_word(data_line_data, data_addr[4:2]) : 32'b0;
+    data_ready = ddr_init_done && data_en &&
+                 ((|data_we) ? write_done : data_hit);
 
     axi_awaddr    = {request_addr[29:5], 3'b000};
     axi_awuser_ap = 1'b0;
@@ -144,7 +148,7 @@ always @(*) begin
     axi_arvalid   = (state == READ_ADDR);
 
     busy = !ddr_init_done || !inst_hit || (state != IDLE) ||
-           (data_en && ((|data_we) || !data_hit));
+           (data_en && !data_ready);
 end
 
 integer byte_index;
@@ -161,7 +165,11 @@ always_ff @(posedge clk) begin
         data_line_valid  <= 1'b0;
         data_line_tag    <= 27'b0;
         data_line_data   <= 256'b0;
+        write_done       <= 1'b0;
     end else begin
+        // A completed write is acknowledged for one cycle.  The idle cycle
+        // after it prevents a request held by the CPU from being issued twice.
+        write_done <= 1'b0;
         case (state)
             IDLE: begin
                 if (ddr_init_done) begin
@@ -171,7 +179,7 @@ always_ff @(posedge clk) begin
                         request_addr    <= inst_addr;
                         request_is_inst <= 1'b1;
                         state           <= READ_ADDR;
-                    end else if (data_en && (|data_we)) begin
+                    end else if (data_en && (|data_we) && !write_done) begin
                         request_addr    <= data_addr;
                         request_is_inst <= 1'b0;
                         request_wdata   <= place_word(data_din, data_addr[4:2]);
@@ -223,6 +231,7 @@ always_ff @(posedge clk) begin
                             if (request_wstrb[byte_index])
                                 data_line_data[byte_index*8 +: 8] <= request_wdata[byte_index*8 +: 8];
                     end
+                    write_done <= 1'b1;
                     state <= IDLE;
                 end
             end

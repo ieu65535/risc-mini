@@ -1,5 +1,6 @@
 module reg_file (
     input  logic        clk,
+    input  logic        rd_we,
 
     input  logic [ 4:0] rd_addr,
     input  logic [31:0] rd_data,
@@ -13,7 +14,8 @@ module reg_file (
 reg [31:0] regs [0:31];
 
 always_ff @(posedge clk) begin
-    regs[rd_addr] <= rd_data;
+    if (rd_we && (rd_addr != 5'b0))
+        regs[rd_addr] <= rd_data;
 end
 
 assign rs1_data = regs[rs1_addr];
